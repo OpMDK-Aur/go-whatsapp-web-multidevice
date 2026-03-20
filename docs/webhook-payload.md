@@ -712,8 +712,14 @@ With auto-download disabled:
     "timestamp": "2025-07-13T11:05:51Z",
     "body": "Check this out!",
     "image": {
+      "caption": "Check this out!",
       "url": "https://mmg.whatsapp.net/...",
-      "caption": "Check this out!"
+      "mime_type": "image/jpg",
+      "file_size": 1232,
+      "direct_path": "/...",
+      "media_key": "...",
+      "file_sha256": "...",
+      "file_enc_sha256": "..."
     }
   }
 }
@@ -733,8 +739,13 @@ With auto-download disabled:
     "timestamp": "2025-07-13T11:07:24Z",
     "body": "Watch this!",
     "video": {
-      "path": "statics/media/1752404845-b9393cd1-8546-4df9-8a60-ee3276036aba.mp4",
-      "caption": "Watch this!"
+      "url": "https://mmg.whatsapp.net/...",
+      "caption": "Watch this!",
+      "mime_type": "image/jpg",
+      "file_size": 1232,
+      "media_key": "...",
+      "file_sha256": "...",
+      "file_enc_sha256": "..."
     }
   }
 }
@@ -752,7 +763,16 @@ With auto-download disabled:
     "from": "628123456789@s.whatsapp.net",
     "from_name": "John Doe",
     "timestamp": "2023-10-15T10:55:00Z",
-    "audio": "statics/media/1752404905-b9393cd1-8546-4df9-8a60-ee3276036aba.ogg"
+    "audio": {
+      "url": "https://mmg.whatsapp.net/...",
+      "caption": "Watch this!",
+      "mime_type": "image/jpg",
+      "file_size": 1232,
+      "is_ppt": false,
+      "media_key": "...",
+      "file_sha256": "...",
+      "file_enc_sha256": "..."
+    }
   }
 }
 ```
@@ -793,7 +813,13 @@ With auto-download disabled:
     "body": "Monthly report",
     "document": {
       "url": "https://mmg.whatsapp.net/...",
-      "filename": "report.pdf"
+      "caption": "Watch this!",
+      "filename": "...",
+      "mime_type": "image/jpg",
+      "file_size": 1232,
+      "media_key": "...",
+      "file_sha256": "...",
+      "file_enc_sha256": "..."
     }
   }
 }
@@ -811,7 +837,16 @@ With auto-download disabled:
     "from": "628123456789@s.whatsapp.net",
     "from_name": "John Doe",
     "timestamp": "2025-07-13T11:09:45Z",
-    "sticker": "statics/media/1752404986-ff2464a6-c54c-4e6c-afde-c4c925ce3573.webp"
+    "sticker": {
+      "url": "https://mmg.whatsapp.net/...",
+      "caption": "Watch this!",
+      "filename": "...",
+      "mime_type": "image/jpg",
+      "file_size": 1232,
+      "media_key": "...",
+      "file_sha256": "...",
+      "file_enc_sha256": "..."
+    }
   }
 }
 ```

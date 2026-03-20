@@ -249,14 +249,18 @@ func buildOptionalFields(ctx context.Context, client *whatsmeow.Client, evt *eve
 
 // buildRichMediaPayload creates a map with all fields needed to identify and download media.
 // mediaKey, fileSHA256, and fileEncSHA256 are base64-encoded.
-func buildRichMediaPayload(url, directPath, mimeType string, mediaKey, fileSHA256, fileEncSHA256 []byte, fileLength uint64) map[string]any {
+func buildRichMediaPayload(
+	url string,
+	mimeType string,
+	mediaKey []byte,
+	fileSHA256 []byte,
+	fileEncSHA256 []byte,
+	fileLength uint64,
+) map[string]any {
 	meta := map[string]any{
 		"url":       url,
 		"mime_type": mimeType,
 		"file_size": fileLength,
-	}
-	if directPath != "" {
-		meta["direct_path"] = directPath
 	}
 	if len(mediaKey) > 0 {
 		meta["media_key"] = base64.StdEncoding.EncodeToString(mediaKey)
@@ -282,7 +286,6 @@ func buildMediaFields(ctx context.Context, client *whatsmeow.Client, msg *waE2E.
 		} else {
 			meta := buildRichMediaPayload(
 				audioMedia.GetURL(),
-				audioMedia.GetDirectPath(),
 				audioMedia.GetMimetype(),
 				audioMedia.GetMediaKey(),
 				audioMedia.GetFileSHA256(),
@@ -292,7 +295,6 @@ func buildMediaFields(ctx context.Context, client *whatsmeow.Client, msg *waE2E.
 			meta["is_ptt"] = audioMedia.GetPTT()
 			payload["audio"] = meta
 		}
-		payload["media_type"] = "audio"
 	}
 
 	if documentMedia := msg.GetDocumentMessage(); documentMedia != nil {
@@ -306,7 +308,6 @@ func buildMediaFields(ctx context.Context, client *whatsmeow.Client, msg *waE2E.
 		} else {
 			meta := buildRichMediaPayload(
 				documentMedia.GetURL(),
-				documentMedia.GetDirectPath(),
 				documentMedia.GetMimetype(),
 				documentMedia.GetMediaKey(),
 				documentMedia.GetFileSHA256(),
@@ -319,7 +320,6 @@ func buildMediaFields(ctx context.Context, client *whatsmeow.Client, msg *waE2E.
 			}
 			payload["document"] = meta
 		}
-		payload["media_type"] = "document"
 	}
 
 	if imageMedia := msg.GetImageMessage(); imageMedia != nil {
@@ -333,7 +333,6 @@ func buildMediaFields(ctx context.Context, client *whatsmeow.Client, msg *waE2E.
 		} else {
 			meta := buildRichMediaPayload(
 				imageMedia.GetURL(),
-				imageMedia.GetDirectPath(),
 				imageMedia.GetMimetype(),
 				imageMedia.GetMediaKey(),
 				imageMedia.GetFileSHA256(),
@@ -345,7 +344,6 @@ func buildMediaFields(ctx context.Context, client *whatsmeow.Client, msg *waE2E.
 			}
 			payload["image"] = meta
 		}
-		payload["media_type"] = "image"
 	}
 
 	if stickerMedia := msg.GetStickerMessage(); stickerMedia != nil {
@@ -359,7 +357,6 @@ func buildMediaFields(ctx context.Context, client *whatsmeow.Client, msg *waE2E.
 		} else {
 			meta := buildRichMediaPayload(
 				stickerMedia.GetURL(),
-				stickerMedia.GetDirectPath(),
 				stickerMedia.GetMimetype(),
 				stickerMedia.GetMediaKey(),
 				stickerMedia.GetFileSHA256(),
@@ -368,7 +365,6 @@ func buildMediaFields(ctx context.Context, client *whatsmeow.Client, msg *waE2E.
 			)
 			payload["sticker"] = meta
 		}
-		payload["media_type"] = "sticker"
 	}
 
 	if videoMedia := msg.GetVideoMessage(); videoMedia != nil {
@@ -382,7 +378,6 @@ func buildMediaFields(ctx context.Context, client *whatsmeow.Client, msg *waE2E.
 		} else {
 			meta := buildRichMediaPayload(
 				videoMedia.GetURL(),
-				videoMedia.GetDirectPath(),
 				videoMedia.GetMimetype(),
 				videoMedia.GetMediaKey(),
 				videoMedia.GetFileSHA256(),
@@ -394,7 +389,6 @@ func buildMediaFields(ctx context.Context, client *whatsmeow.Client, msg *waE2E.
 			}
 			payload["video"] = meta
 		}
-		payload["media_type"] = "video"
 	}
 
 	if ptvMedia := msg.GetPtvMessage(); ptvMedia != nil {
@@ -408,7 +402,6 @@ func buildMediaFields(ctx context.Context, client *whatsmeow.Client, msg *waE2E.
 		} else {
 			meta := buildRichMediaPayload(
 				ptvMedia.GetURL(),
-				ptvMedia.GetDirectPath(),
 				ptvMedia.GetMimetype(),
 				ptvMedia.GetMediaKey(),
 				ptvMedia.GetFileSHA256(),
@@ -420,7 +413,6 @@ func buildMediaFields(ctx context.Context, client *whatsmeow.Client, msg *waE2E.
 			}
 			payload["video_note"] = meta
 		}
-		payload["media_type"] = "video_note"
 	}
 
 	return nil
