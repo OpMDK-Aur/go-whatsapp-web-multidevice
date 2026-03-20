@@ -2,6 +2,7 @@ package whatsapp
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
 	"regexp"
 	"strings"
@@ -246,6 +247,29 @@ func buildOptionalFields(ctx context.Context, client *whatsmeow.Client, evt *eve
 	return nil
 }
 
+// buildRichMediaPayload creates a map with all fields needed to identify and download media.
+// mediaKey, fileSHA256, and fileEncSHA256 are base64-encoded.
+func buildRichMediaPayload(url, directPath, mimeType string, mediaKey, fileSHA256, fileEncSHA256 []byte, fileLength uint64) map[string]any {
+	meta := map[string]any{
+		"url":       url,
+		"mime_type": mimeType,
+		"file_size": fileLength,
+	}
+	if directPath != "" {
+		meta["direct_path"] = directPath
+	}
+	if len(mediaKey) > 0 {
+		meta["media_key"] = base64.StdEncoding.EncodeToString(mediaKey)
+	}
+	if len(fileSHA256) > 0 {
+		meta["file_sha256"] = base64.StdEncoding.EncodeToString(fileSHA256)
+	}
+	if len(fileEncSHA256) > 0 {
+		meta["file_enc_sha256"] = base64.StdEncoding.EncodeToString(fileEncSHA256)
+	}
+	return meta
+}
+
 func buildMediaFields(ctx context.Context, client *whatsmeow.Client, msg *waE2E.Message, payload map[string]any) error {
 	if audioMedia := msg.GetAudioMessage(); audioMedia != nil {
 		if config.WhatsappAutoDownloadMedia {
@@ -256,10 +280,19 @@ func buildMediaFields(ctx context.Context, client *whatsmeow.Client, msg *waE2E.
 			}
 			payload["audio"] = extracted.MediaPath
 		} else {
-			payload["audio"] = map[string]any{
-				"url": audioMedia.GetURL(),
-			}
+			meta := buildRichMediaPayload(
+				audioMedia.GetURL(),
+				audioMedia.GetDirectPath(),
+				audioMedia.GetMimetype(),
+				audioMedia.GetMediaKey(),
+				audioMedia.GetFileSHA256(),
+				audioMedia.GetFileEncSHA256(),
+				audioMedia.GetFileLength(),
+			)
+			meta["is_ptt"] = audioMedia.GetPTT()
+			payload["audio"] = meta
 		}
+		payload["media_type"] = "audio"
 	}
 
 	if documentMedia := msg.GetDocumentMessage(); documentMedia != nil {
@@ -271,11 +304,22 @@ func buildMediaFields(ctx context.Context, client *whatsmeow.Client, msg *waE2E.
 			}
 			payload["document"] = buildAutoDownloadPayload(extracted)
 		} else {
-			payload["document"] = map[string]any{
-				"url":      documentMedia.GetURL(),
-				"filename": documentMedia.GetFileName(),
+			meta := buildRichMediaPayload(
+				documentMedia.GetURL(),
+				documentMedia.GetDirectPath(),
+				documentMedia.GetMimetype(),
+				documentMedia.GetMediaKey(),
+				documentMedia.GetFileSHA256(),
+				documentMedia.GetFileEncSHA256(),
+				documentMedia.GetFileLength(),
+			)
+			meta["filename"] = documentMedia.GetFileName()
+			if cap := documentMedia.GetCaption(); cap != "" {
+				meta["caption"] = cap
 			}
+			payload["document"] = meta
 		}
+		payload["media_type"] = "document"
 	}
 
 	if imageMedia := msg.GetImageMessage(); imageMedia != nil {
@@ -287,11 +331,21 @@ func buildMediaFields(ctx context.Context, client *whatsmeow.Client, msg *waE2E.
 			}
 			payload["image"] = buildAutoDownloadPayload(extracted)
 		} else {
-			payload["image"] = map[string]any{
-				"url":     imageMedia.GetURL(),
-				"caption": imageMedia.GetCaption(),
+			meta := buildRichMediaPayload(
+				imageMedia.GetURL(),
+				imageMedia.GetDirectPath(),
+				imageMedia.GetMimetype(),
+				imageMedia.GetMediaKey(),
+				imageMedia.GetFileSHA256(),
+				imageMedia.GetFileEncSHA256(),
+				imageMedia.GetFileLength(),
+			)
+			if cap := imageMedia.GetCaption(); cap != "" {
+				meta["caption"] = cap
 			}
+			payload["image"] = meta
 		}
+		payload["media_type"] = "image"
 	}
 
 	if stickerMedia := msg.GetStickerMessage(); stickerMedia != nil {
@@ -303,10 +357,18 @@ func buildMediaFields(ctx context.Context, client *whatsmeow.Client, msg *waE2E.
 			}
 			payload["sticker"] = extracted.MediaPath
 		} else {
-			payload["sticker"] = map[string]any{
-				"url": stickerMedia.GetURL(),
-			}
+			meta := buildRichMediaPayload(
+				stickerMedia.GetURL(),
+				stickerMedia.GetDirectPath(),
+				stickerMedia.GetMimetype(),
+				stickerMedia.GetMediaKey(),
+				stickerMedia.GetFileSHA256(),
+				stickerMedia.GetFileEncSHA256(),
+				stickerMedia.GetFileLength(),
+			)
+			payload["sticker"] = meta
 		}
+		payload["media_type"] = "sticker"
 	}
 
 	if videoMedia := msg.GetVideoMessage(); videoMedia != nil {
@@ -318,11 +380,21 @@ func buildMediaFields(ctx context.Context, client *whatsmeow.Client, msg *waE2E.
 			}
 			payload["video"] = buildAutoDownloadPayload(extracted)
 		} else {
-			payload["video"] = map[string]any{
-				"url":     videoMedia.GetURL(),
-				"caption": videoMedia.GetCaption(),
+			meta := buildRichMediaPayload(
+				videoMedia.GetURL(),
+				videoMedia.GetDirectPath(),
+				videoMedia.GetMimetype(),
+				videoMedia.GetMediaKey(),
+				videoMedia.GetFileSHA256(),
+				videoMedia.GetFileEncSHA256(),
+				videoMedia.GetFileLength(),
+			)
+			if cap := videoMedia.GetCaption(); cap != "" {
+				meta["caption"] = cap
 			}
+			payload["video"] = meta
 		}
+		payload["media_type"] = "video"
 	}
 
 	if ptvMedia := msg.GetPtvMessage(); ptvMedia != nil {
@@ -334,11 +406,21 @@ func buildMediaFields(ctx context.Context, client *whatsmeow.Client, msg *waE2E.
 			}
 			payload["video_note"] = buildAutoDownloadPayload(extracted)
 		} else {
-			payload["video_note"] = map[string]any{
-				"url":     ptvMedia.GetURL(),
-				"caption": ptvMedia.GetCaption(),
+			meta := buildRichMediaPayload(
+				ptvMedia.GetURL(),
+				ptvMedia.GetDirectPath(),
+				ptvMedia.GetMimetype(),
+				ptvMedia.GetMediaKey(),
+				ptvMedia.GetFileSHA256(),
+				ptvMedia.GetFileEncSHA256(),
+				ptvMedia.GetFileLength(),
+			)
+			if cap := ptvMedia.GetCaption(); cap != "" {
+				meta["caption"] = cap
 			}
+			payload["video_note"] = meta
 		}
+		payload["media_type"] = "video_note"
 	}
 
 	return nil

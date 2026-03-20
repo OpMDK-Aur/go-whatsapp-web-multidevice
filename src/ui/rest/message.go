@@ -1,6 +1,9 @@
 package rest
 
 import (
+	"fmt"
+	"strconv"
+
 	domainMessage "github.com/aldinokemal/go-whatsapp-web-multidevice/domains/message"
 	"github.com/aldinokemal/go-whatsapp-web-multidevice/infrastructure/whatsapp"
 	"github.com/aldinokemal/go-whatsapp-web-multidevice/pkg/utils"
@@ -23,6 +26,7 @@ func InitRestMessage(app fiber.Router, service domainMessage.IMessageUsecase) Me
 	app.Post("/message/:message_id/star", rest.StarMessage)
 	app.Post("/message/:message_id/unstar", rest.UnstarMessage)
 	app.Get("/message/:message_id/download", rest.DownloadMedia)
+	app.Get("/message/:message_id/download/stream", rest.StreamMedia)
 	return rest
 }
 
@@ -181,4 +185,28 @@ func (controller *Message) DownloadMedia(c *fiber.Ctx) error {
 		Message: response.Status,
 		Results: response,
 	})
+}
+
+// StreamMedia downloads a media message and streams the decrypted bytes directly to the client.
+// GET /message/:message_id/download/stream?phone=<chat_jid>
+func (controller *Message) StreamMedia(c *fiber.Ctx) error {
+	var request domainMessage.DownloadMediaRequest
+
+	request.MessageID = c.Params("message_id")
+	request.Phone = c.Query("phone")
+	utils.SanitizePhone(&request.Phone)
+
+	ctx := c.UserContext()
+	if device, ok := c.Locals("device").(*whatsapp.DeviceInstance); ok {
+		ctx = whatsapp.ContextWithDevice(ctx, device)
+	}
+
+	data, err := controller.Service.StreamMedia(ctx, request)
+	utils.PanicIfNeeded(err)
+
+	c.Set("Content-Type", data.MimeType)
+	c.Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, data.Filename))
+	c.Set("Content-Length", strconv.FormatInt(data.FileSize, 10))
+	c.Set("X-Media-Type", data.MediaType)
+	return c.Send(data.Data)
 }

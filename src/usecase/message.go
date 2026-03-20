@@ -3,6 +3,7 @@ package usecase
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"os"
 	"path/filepath"
 	"time"
@@ -385,5 +386,93 @@ func (service serviceMessage) DownloadMedia(ctx context.Context, request domainM
 		"file_size":  response.FileSize,
 	})
 
+	return response, nil
+}
+
+func (service serviceMessage) StreamMedia(ctx context.Context, request domainMessage.DownloadMediaRequest) (response domainMessage.StreamMediaData, err error) {
+	if err = validations.ValidateDownloadMedia(ctx, request); err != nil {
+		return response, err
+	}
+
+	client := whatsapp.ClientFromContext(ctx)
+	if client == nil {
+		return response, pkgError.ErrWaCLI
+	}
+
+	dataWaRecipient, err := utils.ValidateJidWithLogin(client, request.Phone)
+	if err != nil {
+		return response, err
+	}
+
+	message, err := service.chatStorageRepo.GetMessageByID(request.MessageID)
+	if err != nil {
+		return response, fmt.Errorf("message not found: %v", err)
+	}
+	if message == nil {
+		return response, fmt.Errorf("message with ID %s not found", request.MessageID)
+	}
+	if message.MediaType == "" || message.URL == "" {
+		return response, fmt.Errorf("message %s does not contain downloadable media", request.MessageID)
+	}
+	if message.ChatJID != dataWaRecipient.String() {
+		return response, fmt.Errorf("message %s does not belong to chat %s", request.MessageID, dataWaRecipient.String())
+	}
+
+	if int64(message.FileLength) > config.WhatsappSettingMaxDownloadSize {
+		return response, fmt.Errorf("file size exceeds the maximum limit of %d bytes", config.WhatsappSettingMaxDownloadSize)
+	}
+
+	var downloadableMsg whatsmeow.DownloadableMessage
+	switch message.MediaType {
+	case "image":
+		downloadableMsg = &waE2E.ImageMessage{
+			URL: proto.String(message.URL), MediaKey: message.MediaKey,
+			FileSHA256: message.FileSHA256, FileEncSHA256: message.FileEncSHA256,
+			FileLength: proto.Uint64(message.FileLength),
+		}
+	case "video", "video_note":
+		downloadableMsg = &waE2E.VideoMessage{
+			URL: proto.String(message.URL), MediaKey: message.MediaKey,
+			FileSHA256: message.FileSHA256, FileEncSHA256: message.FileEncSHA256,
+			FileLength: proto.Uint64(message.FileLength),
+		}
+	case "audio":
+		downloadableMsg = &waE2E.AudioMessage{
+			URL: proto.String(message.URL), MediaKey: message.MediaKey,
+			FileSHA256: message.FileSHA256, FileEncSHA256: message.FileEncSHA256,
+			FileLength: proto.Uint64(message.FileLength),
+		}
+	case "document":
+		downloadableMsg = &waE2E.DocumentMessage{
+			URL: proto.String(message.URL), MediaKey: message.MediaKey,
+			FileSHA256: message.FileSHA256, FileEncSHA256: message.FileEncSHA256,
+			FileLength: proto.Uint64(message.FileLength),
+			FileName:   proto.String(message.Filename),
+		}
+	case "sticker":
+		downloadableMsg = &waE2E.StickerMessage{
+			URL: proto.String(message.URL), MediaKey: message.MediaKey,
+			FileSHA256: message.FileSHA256, FileEncSHA256: message.FileEncSHA256,
+			FileLength: proto.Uint64(message.FileLength),
+		}
+	default:
+		return response, fmt.Errorf("unsupported media type: %s", message.MediaType)
+	}
+
+	data, err := client.Download(ctx, downloadableMsg)
+	if err != nil {
+		return response, fmt.Errorf("failed to download media: %v", err)
+	}
+
+	filename := message.Filename
+	if filename == "" {
+		filename = fmt.Sprintf("%s_%s", message.MediaType, request.MessageID)
+	}
+
+	response.Data = data
+	response.MimeType = http.DetectContentType(data)
+	response.Filename = filename
+	response.MediaType = message.MediaType
+	response.FileSize = int64(len(data))
 	return response, nil
 }

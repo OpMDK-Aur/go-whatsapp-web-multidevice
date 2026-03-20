@@ -51,3 +51,12 @@ type DownloadMediaResponse struct {
 	FilePath  string `json:"file_path"`
 	FileSize  int64  `json:"file_size"`
 }
+
+// StreamMediaData holds decrypted media bytes and metadata for streaming to HTTP clients.
+type StreamMediaData struct {
+	Data      []byte
+	MimeType  string
+	Filename  string
+	MediaType string
+	FileSize  int64
+}
