@@ -204,43 +204,69 @@ func ExtractMediaCaption(msg *waE2E.Message) string {
 }
 
 // ExtractMediaInfo extracts media information from a WhatsApp message
-func ExtractMediaInfo(msg *waE2E.Message) (mediaType string, filename string, url string, mediaKey []byte, fileSHA256 []byte, fileEncSHA256 []byte, fileLength uint64) {
+func ExtractMediaInfo(msg *waE2E.Message) (mediaType string, mimeType string, filename string, url string, mediaKey []byte, fileSHA256 []byte, fileEncSHA256 []byte, fileLength uint64) {
 	if msg == nil {
-		return "", "", "", nil, nil, nil, 0
+		return "", "", "", "", nil, nil, nil, 0
 	}
+	var extension string
 
 	// Check for image message
 	if img := msg.GetImageMessage(); img != nil {
-		filename = GenerateMediaFilename("image", "jpg", img.GetCaption())
-		return "image", filename,
+		mimeType = img.GetMimetype()
+		extension = determineMediaExtension("", mimeType)
+		if extension == "" {
+			extension = ".jpg"
+		}
+	
+		filename = GenerateMediaFilename("image", extension, "")
+		return "image", mimeType, filename,
 			img.GetURL(), img.GetMediaKey(), img.GetFileSHA256(),
 			img.GetFileEncSHA256(), img.GetFileLength()
 	}
 
 	// Check for video message
 	if vid := msg.GetVideoMessage(); vid != nil {
-		filename = GenerateMediaFilename("video", "mp4", vid.GetCaption())
-		return "video", filename,
+		mimeType = vid.GetMimetype()
+		extension = determineMediaExtension("", mimeType)
+		if extension == "" {
+			extension = ".mp4"
+		}
+
+		filename = GenerateMediaFilename("video", extension, "")
+		return "video", mimeType, filename,
 			vid.GetURL(), vid.GetMediaKey(), vid.GetFileSHA256(),
 			vid.GetFileEncSHA256(), vid.GetFileLength()
 	}
 
 	// Check for PTV (video note) message - circular video messages
 	if ptv := msg.GetPtvMessage(); ptv != nil {
-		filename = GenerateMediaFilename("video_note", "mp4", ptv.GetCaption())
-		return "video_note", filename,
+		mimeType = ptv.GetMimetype()
+		extension = determineMediaExtension("", mimeType)
+		if extension == "" {
+			extension = ".mp4"
+		}
+		filename = GenerateMediaFilename("video_note", extension, "")
+		return "video_note", mimeType, filename,
 			ptv.GetURL(), ptv.GetMediaKey(), ptv.GetFileSHA256(),
 			ptv.GetFileEncSHA256(), ptv.GetFileLength()
 	}
 
 	// Check for audio message
 	if aud := msg.GetAudioMessage(); aud != nil {
-		extension := "ogg"
+
 		if aud.GetPTT() {
-			extension = "ogg" // Voice notes are typically ogg
+			extension = ".ogg" // Voice notes are typically ogg
+			mimeType = "audio/ogg"
+		} else  {
+			mimeType = aud.GetMimetype()
+			extension = determineMediaExtension("", mimeType)
+
+			if extension == "" {
+				extension = ".ogg"
+			}
 		}
 		filename = GenerateMediaFilename("audio", extension, "")
-		return "audio", filename,
+		return "audio", mimeType, filename,
 			aud.GetURL(), aud.GetMediaKey(), aud.GetFileSHA256(),
 			aud.GetFileEncSHA256(), aud.GetFileLength()
 	}
@@ -248,23 +274,31 @@ func ExtractMediaInfo(msg *waE2E.Message) (mediaType string, filename string, ur
 	// Check for document message
 	if doc := msg.GetDocumentMessage(); doc != nil {
 		filename = doc.GetFileName()
+		mimeType = doc.GetMimetype()
+		extension = determineMediaExtension(filename, mimeType)
 		if filename == "" {
-			filename = GenerateMediaFilename("document", "", doc.GetTitle())
+			if extension != "" {
+				filename = GenerateMediaFilename("document", extension, doc.GetTitle())
+			} else {
+				filename = GenerateMediaFilename("document", "", doc.GetTitle())
+			}
 		}
-		return "document", filename,
+		return "document", mimeType, filename,
 			doc.GetURL(), doc.GetMediaKey(), doc.GetFileSHA256(),
 			doc.GetFileEncSHA256(), doc.GetFileLength()
 	}
 
 	// Check for sticker message
 	if sticker := msg.GetStickerMessage(); sticker != nil {
-		filename = GenerateMediaFilename("sticker", "webp", "")
-		return "sticker", filename,
+		extension = ".webp"
+		mimeType = "image/webp"
+		filename = GenerateMediaFilename("sticker", extension, "")
+		return "sticker", mimeType, filename,
 			sticker.GetURL(), sticker.GetMediaKey(), sticker.GetFileSHA256(),
 			sticker.GetFileEncSHA256(), sticker.GetFileLength()
 	}
 
-	return "", "", "", nil, nil, nil, 0
+	return "", "", "", "", nil, nil, nil, 0
 }
 
 // ExtractContextInfo returns the ContextInfo from whichever message sub-type
@@ -333,9 +367,8 @@ func GenerateMediaFilename(mediaType, extension, caption string) string {
 		}
 		name += "_" + cleanCaption
 	}
-
 	if extension != "" {
-		name += "." + extension
+		name += extension
 	}
 	return name
 }

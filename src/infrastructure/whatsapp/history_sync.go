@@ -147,7 +147,6 @@ func processConversationMessages(ctx context.Context, data *waHistorySync.Histor
 			if messageID == "" {
 				continue
 			}
-
 			// Determine sender
 			sender := ""
 			senderJID := types.EmptyJID
@@ -254,6 +253,7 @@ func processConversationMessages(ctx context.Context, data *waHistorySync.Histor
 				Timestamp:     timestamp,
 				IsFromMe:      isFromMe,
 				MediaType:     mediaType,
+				MimeType:      mimeType,
 				Filename:      filename,
 				URL:           url,
 				MediaKey:      mediaKey,

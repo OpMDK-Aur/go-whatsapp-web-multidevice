@@ -10,6 +10,7 @@ import (
 	"go.mau.fi/whatsmeow/types/events"
 )
 
+/*
 func getReceiptTypeDescription(evt types.ReceiptType) string {
 	switch evt {
 	case types.ReceiptTypeDelivered:
@@ -33,6 +34,7 @@ func getReceiptTypeDescription(evt types.ReceiptType) string {
 		return "unknown receipt type"
 	}
 }
+*/
 
 // createReceiptPayload creates a webhook payload for message acknowledgement (receipt) events
 func createReceiptPayload(ctx context.Context, evt *events.Receipt, deviceID string, client *whatsmeow.Client) map[string]any {
@@ -64,7 +66,7 @@ func createReceiptPayload(ctx context.Context, evt *events.Receipt, deviceID str
 	} else {
 		payload["receipt_type"] = string(evt.Type)
 	}
-	payload["receipt_type_description"] = getReceiptTypeDescription(evt.Type)
+	//payload["receipt_type_description"] = getReceiptTypeDescription(evt.Type)
 
 	// Wrap in body structure
 	body["event"] = "message.ack"

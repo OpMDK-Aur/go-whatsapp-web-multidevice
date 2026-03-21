@@ -3,7 +3,6 @@ package usecase
 import (
 	"context"
 	"fmt"
-	"net/http"
 	"os"
 	"path/filepath"
 	"time"
@@ -389,7 +388,10 @@ func (service serviceMessage) DownloadMedia(ctx context.Context, request domainM
 	return response, nil
 }
 
-func (service serviceMessage) StreamMedia(ctx context.Context, request domainMessage.DownloadMediaRequest) (response domainMessage.StreamMediaData, err error) {
+func (service serviceMessage) StreamMedia(
+	ctx context.Context,
+	request domainMessage.DownloadMediaRequest,
+) (response domainMessage.StreamMediaData, err error) {
 	if err = validations.ValidateDownloadMedia(ctx, request); err != nil {
 		return response, err
 	}
@@ -426,34 +428,44 @@ func (service serviceMessage) StreamMedia(ctx context.Context, request domainMes
 	switch message.MediaType {
 	case "image":
 		downloadableMsg = &waE2E.ImageMessage{
-			URL: proto.String(message.URL), MediaKey: message.MediaKey,
-			FileSHA256: message.FileSHA256, FileEncSHA256: message.FileEncSHA256,
-			FileLength: proto.Uint64(message.FileLength),
+			URL:           proto.String(message.URL),
+			MediaKey:      message.MediaKey,
+			FileSHA256:    message.FileSHA256,
+			FileEncSHA256: message.FileEncSHA256,
+			FileLength:    proto.Uint64(message.FileLength),
 		}
-	case "video", "video_note":
+	case "video":
 		downloadableMsg = &waE2E.VideoMessage{
-			URL: proto.String(message.URL), MediaKey: message.MediaKey,
-			FileSHA256: message.FileSHA256, FileEncSHA256: message.FileEncSHA256,
-			FileLength: proto.Uint64(message.FileLength),
+			URL:           proto.String(message.URL),
+			MediaKey:      message.MediaKey,
+			FileSHA256:    message.FileSHA256,
+			FileEncSHA256: message.FileEncSHA256,
+			FileLength:    proto.Uint64(message.FileLength),
 		}
 	case "audio":
 		downloadableMsg = &waE2E.AudioMessage{
-			URL: proto.String(message.URL), MediaKey: message.MediaKey,
-			FileSHA256: message.FileSHA256, FileEncSHA256: message.FileEncSHA256,
-			FileLength: proto.Uint64(message.FileLength),
+			URL:           proto.String(message.URL),
+			MediaKey:      message.MediaKey,
+			FileSHA256:    message.FileSHA256,
+			FileEncSHA256: message.FileEncSHA256,
+			FileLength:    proto.Uint64(message.FileLength),
 		}
 	case "document":
 		downloadableMsg = &waE2E.DocumentMessage{
-			URL: proto.String(message.URL), MediaKey: message.MediaKey,
-			FileSHA256: message.FileSHA256, FileEncSHA256: message.FileEncSHA256,
-			FileLength: proto.Uint64(message.FileLength),
-			FileName:   proto.String(message.Filename),
+			URL:           proto.String(message.URL),
+			MediaKey:      message.MediaKey,
+			FileSHA256:    message.FileSHA256,
+			FileEncSHA256: message.FileEncSHA256,
+			FileLength:    proto.Uint64(message.FileLength),
+			FileName:      proto.String(message.Filename),
 		}
 	case "sticker":
 		downloadableMsg = &waE2E.StickerMessage{
-			URL: proto.String(message.URL), MediaKey: message.MediaKey,
-			FileSHA256: message.FileSHA256, FileEncSHA256: message.FileEncSHA256,
-			FileLength: proto.Uint64(message.FileLength),
+			URL:           proto.String(message.URL),
+			MediaKey:      message.MediaKey,
+			FileSHA256:    message.FileSHA256,
+			FileEncSHA256: message.FileEncSHA256,
+			FileLength:    proto.Uint64(message.FileLength),
 		}
 	default:
 		return response, fmt.Errorf("unsupported media type: %s", message.MediaType)
@@ -470,9 +482,20 @@ func (service serviceMessage) StreamMedia(ctx context.Context, request domainMes
 	}
 
 	response.Data = data
-	response.MimeType = http.DetectContentType(data)
+	response.MimeType = message.MimeType
 	response.Filename = filename
 	response.MediaType = message.MediaType
 	response.FileSize = int64(len(data))
+
+
+	logrus.Info(map[string]any{
+		"message_id": request.MessageID,
+		"phone":      request.Phone,
+		"chat":       dataWaRecipient.String(),
+		"media_type": response.MediaType,
+		"mime_type":  response.MimeType,
+		"file_size":  response.FileSize,
+	})
+
 	return response, nil
 }

@@ -207,6 +207,7 @@ func (controller *Message) StreamMedia(c *fiber.Ctx) error {
 	c.Set("Content-Type", data.MimeType)
 	c.Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, data.Filename))
 	c.Set("Content-Length", strconv.FormatInt(data.FileSize, 10))
+	c.Set("X-File-Name", data.Filename)
 	c.Set("X-Media-Type", data.MediaType)
 	return c.Send(data.Data)
 }
