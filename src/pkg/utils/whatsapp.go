@@ -204,7 +204,16 @@ func ExtractMediaCaption(msg *waE2E.Message) string {
 }
 
 // ExtractMediaInfo extracts media information from a WhatsApp message
-func ExtractMediaInfo(msg *waE2E.Message) (mediaType string, mimeType string, filename string, url string, mediaKey []byte, fileSHA256 []byte, fileEncSHA256 []byte, fileLength uint64) {
+func ExtractMediaInfo(msg *waE2E.Message) (
+	mediaType string,
+	mimeType string,
+	filename string,
+	url string,
+	mediaKey []byte,
+	fileSHA256 []byte,
+	fileEncSHA256 []byte,
+	fileLength uint64,
+) {
 	if msg == nil {
 		return "", "", "", "", nil, nil, nil, 0
 	}
@@ -287,6 +296,7 @@ func ExtractMediaInfo(msg *waE2E.Message) (mediaType string, mimeType string, fi
 			doc.GetURL(), doc.GetMediaKey(), doc.GetFileSHA256(),
 			doc.GetFileEncSHA256(), doc.GetFileLength()
 	}
+
 
 	// Check for sticker message
 	if sticker := msg.GetStickerMessage(); sticker != nil {

@@ -1020,6 +1020,7 @@ func (r *SQLiteRepository) CreateMessage(ctx context.Context, evt *events.Messag
 
 	// Get existing chat to preserve ephemeral_expiration and archived status if needed (device-scoped)
 	existingChat, err := r.GetChatByDevice(deviceID, chatJID)
+
 	if err != nil {
 		return fmt.Errorf("failed to get existing chat: %w", err)
 	}
