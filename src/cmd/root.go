@@ -130,6 +130,9 @@ func initEnvConfig() {
 	if envWebhookSecret := viper.GetString("whatsapp_webhook_secret"); envWebhookSecret != "" {
 		config.WhatsappWebhookSecret = envWebhookSecret
 	}
+	if envWebhookBearer := viper.GetString("whatsapp_webhook_bearer"); envWebhookBearer != "" {
+		config.WhatsappWebhookBearer = envWebhookBearer
+	}
 	if viper.IsSet("whatsapp_webhook_insecure_skip_verify") {
 		config.WhatsappWebhookInsecureSkipVerify = viper.GetBool("whatsapp_webhook_insecure_skip_verify")
 	}
@@ -266,6 +269,12 @@ func initFlags() {
 		"webhook-secret", "",
 		config.WhatsappWebhookSecret,
 		`secure webhook request --webhook-secret <string> | example: --webhook-secret="super-secret-key"`,
+	)
+	rootCmd.PersistentFlags().StringVarP(
+		&config.WhatsappWebhookBearer,
+		"webhook-bearer", "",
+		config.WhatsappWebhookBearer,
+		`bearer layer on webhook request --webhook-bearer <string> | example: --webhook-bearer="super-bearer-api-key"`,
 	)
 	rootCmd.PersistentFlags().BoolVarP(
 		&config.WhatsappWebhookInsecureSkipVerify,

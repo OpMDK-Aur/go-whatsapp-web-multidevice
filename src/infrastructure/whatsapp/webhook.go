@@ -47,6 +47,10 @@ func submitWebhook(ctx context.Context, payload map[string]any, url string) erro
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("X-Hub-Signature-256", fmt.Sprintf("sha256=%s", signature))
 
+	if len(config.WhatsappWebhookBearer) > 0 {
+		req.Header.Set("Authorization", "Bearer "+config.WhatsappWebhookBearer)
+	}
+
 	var attempt int
 	var maxAttempts = 5
 	var sleepDuration = 1 * time.Second

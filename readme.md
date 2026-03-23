@@ -204,6 +204,7 @@ To use environment variables:
 | `WHATSAPP_AUTO_DOWNLOAD_MEDIA`          | Auto-download media from incoming messages                    | `true`                                       | `WHATSAPP_AUTO_DOWNLOAD_MEDIA=false`          |
 | `WHATSAPP_WEBHOOK`                      | Webhook URL(s) for events (comma-separated)                   | -                                            | `WHATSAPP_WEBHOOK=https://webhook.site/xxx`   |
 | `WHATSAPP_WEBHOOK_SECRET`               | Webhook secret for validation                                 | `secret`                                     | `WHATSAPP_WEBHOOK_SECRET=super-secret-key`    |
+| `WHATSAPP_WEBHOOK_BEARER`               | Webhook bearer token for validation                           | -                                            |
 | `WHATSAPP_WEBHOOK_INSECURE_SKIP_VERIFY` | Skip TLS verification for webhooks (insecure)                 | `false`                                      | `WHATSAPP_WEBHOOK_INSECURE_SKIP_VERIFY=true`  |
 | `WHATSAPP_WEBHOOK_EVENTS`               | Whitelist of events to forward (comma-separated, empty = all) | -                                            | `WHATSAPP_WEBHOOK_EVENTS=message,message.ack` |
 | `WHATSAPP_ACCOUNT_VALIDATION`           | Enable account validation                                     | `true`                                       | `WHATSAPP_ACCOUNT_VALIDATION=false`           |

@@ -31,6 +31,7 @@ var (
 	WhatsappAutoDownloadMedia         = true  // Auto-download media from incoming messages
 	WhatsappWebhook                   []string
 	WhatsappWebhookSecret             = "secret"
+	WhatsappWebhookBearer             string
 	WhatsappWebhookInsecureSkipVerify = false          // Skip TLS certificate verification for webhooks (insecure)
 	WhatsappWebhookEvents             []string         // Whitelist of events to forward to webhook (empty = all events)
 	WhatsappAutoRejectCall                     = false // Auto-reject incoming calls
