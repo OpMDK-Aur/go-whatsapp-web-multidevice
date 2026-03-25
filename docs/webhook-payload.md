@@ -14,6 +14,9 @@ The following events can be received via webhook:
 
 | Event                | Description                                             |
 |----------------------|---------------------------------------------------------|
+| `pairsuccess`        | Loggin success                                          |
+| `loggout`            | The device was logged out from other device or from error |
+| `temporaryban`       | Connection failure with the temporal ban code           |
 | `message`            | Text, media, contact, location, and other message types |
 | `message.reaction`   | Emoji reactions to messages                             |
 | `message.revoked`    | Deleted/revoked messages                                |

@@ -268,13 +268,13 @@ func initFlags() {
 		&config.WhatsappWebhookSecret,
 		"webhook-secret", "",
 		config.WhatsappWebhookSecret,
-		`secure webhook request --webhook-secret <string> | example: --webhook-secret="super-secret-key"`,
+		`secure webhook request --webhook-secret <string> | example: --webhook-bearer="super-bearer-key"`,
 	)
 	rootCmd.PersistentFlags().StringVarP(
 		&config.WhatsappWebhookBearer,
 		"webhook-bearer", "",
 		config.WhatsappWebhookBearer,
-		`bearer layer on webhook request --webhook-bearer <string> | example: --webhook-bearer="super-bearer-api-key"`,
+		`secure webhook request --webhook-bearer <string> | example: --webhook-bearer="super-bearer-key"`,
 	)
 	rootCmd.PersistentFlags().BoolVarP(
 		&config.WhatsappWebhookInsecureSkipVerify,

@@ -177,6 +177,8 @@ func buildFromFields(ctx context.Context, client *whatsmeow.Client, evt *events.
 	payload["from"] = normalizedSenderJID.ToNonAD().String()
 }
 
+
+
 func buildMessageBody(ctx context.Context, client *whatsmeow.Client, evt *events.Message, payload map[string]any) error {
 	message := utils.BuildEventMessage(evt)
 
@@ -243,6 +245,7 @@ func buildOptionalFields(ctx context.Context, client *whatsmeow.Client, evt *eve
 	}
 
 	buildOtherMessageTypes(msg, payload)
+	buildConversionMessageTypes(msg, payload)
 
 	return nil
 }
@@ -339,6 +342,9 @@ func buildMediaFields(ctx context.Context, client *whatsmeow.Client, msg *waE2E.
 				imageMedia.GetFileEncSHA256(),
 				imageMedia.GetFileLength(),
 			)
+			if thumbnail := imageMedia.GetJPEGThumbnail(); thumbnail != nil {
+				payload["jpeg_thumbnail"] = base64.StdEncoding.EncodeToString(thumbnail)
+			}
 			if cap := imageMedia.GetCaption(); cap != "" {
 				meta["caption"] = cap
 			}
@@ -384,6 +390,9 @@ func buildMediaFields(ctx context.Context, client *whatsmeow.Client, msg *waE2E.
 				videoMedia.GetFileEncSHA256(),
 				videoMedia.GetFileLength(),
 			)
+			if thumbnail := videoMedia.GetJPEGThumbnail(); thumbnail != nil {
+				payload["jpeg_thumbnail"] = base64.StdEncoding.EncodeToString(thumbnail)
+			}
 			if cap := videoMedia.GetCaption(); cap != "" {
 				meta["caption"] = cap
 			}
@@ -479,3 +488,64 @@ func buildWebhookContactsArrayPayload(contacts []*waE2E.ContactMessage) []webhoo
 	}
 	return result
 }
+
+/*
+func buildConversionMessageTypes(msg *waE2E.Message, payload map[string]any) {
+	extendedMessage := msg.GetExtendedTextMessage();
+	if extendedMessage == nil {
+		return
+	} 
+	if conversionSource := extendedMessage.ContextInfo.GetConversionSource(); conversionSource != "" {
+		payload["conversion_source"] = conversionSource
+	}
+	if conversionData := extendedMessage.ContextInfo.GetConversionData(); conversionData != nil {
+		payload["conversion_data"] = base64.StdEncoding.EncodeToString(conversionData)
+	}
+	if ctwaPayload := extendedMessage.ContextInfo.GetConversionData(); ctwaPayload != nil {
+		payload["ctwa_payload"] = base64.StdEncoding.EncodeToString(ctwaPayload)
+	}
+	if entryPointConversionApp := extendedMessage.ContextInfo.GetEntryPointConversionApp(); entryPointConversionApp != "" {
+		payload["entry_point_conversion_app"] = entryPointConversionApp
+	}
+	if entryPointConversionSource := extendedMessage.ContextInfo.GetEntryPointConversionSource(); entryPointConversionSource != "" {
+		payload["entry_point_conversion_source"] = entryPointConversionSource
+		payload["entry_point_conversion_delay_seconds"] = extendedMessage.ContextInfo.GetEntryPointConversionDelaySeconds()
+	}
+
+	if utm := extendedMessage.ContextInfo.GetUtm(); utm != nil {
+		utmPayload := make(map[string]any)
+		utmPayload["source"] = utm.GetUtmSource()
+		utmPayload["campaign"] = utm.GetUtmCampaign()
+		payload["utm"] = utmPayload
+	}
+
+	if externalAdReply := extendedMessage.ContextInfo.GetExternalAdReply(); externalAdReply != nil {
+		adReplyPayload := make(map[string]any)
+
+		adReplyPayload["title"] = externalAdReply.GetTitle()
+		//adReplyPayload["body"] = externalAdReply.GetBody()
+		//adReplyPayload["ad_context_preview_dismissed"] = externalAdReply.GetAdContextPreviewDismissed()
+		//adReplyPayload["wtwa_ad_format"] = externalAdReply.GetWtwaAdFormat()
+
+		adReplyPayload["media_type"] = externalAdReply.GetMediaType()
+		adReplyPayload["media_url"] = externalAdReply.GetMediaURL()
+		//adReplyPayload["original_image_url"] = externalAdReply.GetOriginalImageURL()
+
+		if thumbnail:= externalAdReply.GetThumbnail(); thumbnail != nil {
+			adReplyPayload["thumbnail"] = base64.StdEncoding.EncodeToString(thumbnail)
+		} else {
+			adReplyPayload["thumbnail"] = ""
+		}
+		
+		//adReplyPayload["greeting_message_body"] = externalAdReply.GetGreetingMessageBody()
+
+		adReplyPayload["source_app"] = externalAdReply.GetSourceApp()
+		adReplyPayload["source_id"] = externalAdReply.GetSourceID()
+		adReplyPayload["source_type"] = externalAdReply.GetSourceType()
+		adReplyPayload["source_url"] = externalAdReply.GetSourceURL()
+
+		
+		payload["external_ad_reply"] = adReplyPayload
+	}
+}
+*/

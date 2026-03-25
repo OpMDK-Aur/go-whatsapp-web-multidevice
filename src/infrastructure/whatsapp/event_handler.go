@@ -34,11 +34,13 @@ func handler(ctx context.Context, instance *DeviceInstance, rawEvt any) {
 	case *events.DeleteForMe:
 		handleDeleteForMe(ctx, evt, chatStorageRepo, instance.JID(), client)
 	case *events.AppStateSyncComplete:
-		handleAppStateSyncComplete(ctx, client, evt)
+		handleAppStateSyncComplete(ctx, evt, client)
 	case *events.PairSuccess:
 		handlePairSuccess(ctx, evt)
 	case *events.LoggedOut:
-		handleLoggedOut(ctx, instance, chatStorageRepo)
+		handleLoggedOut(ctx, evt, instance, chatStorageRepo, client)
+	case *events.TemporaryBan:
+		handleTemporaryBan(ctx, evt, instance)
 	case *events.Connected, *events.PushNameSetting:
 		handleConnectionEvents(ctx, client, instance)
 	case *events.StreamReplaced:
@@ -134,7 +136,7 @@ func sendConfiguredPresence(ctx context.Context, client *whatsmeow.Client) {
 	}
 }
 
-func handleAppStateSyncComplete(_ context.Context, client *whatsmeow.Client, evt *events.AppStateSyncComplete) {
+func handleAppStateSyncComplete(_ context.Context,  evt *events.AppStateSyncComplete, client *whatsmeow.Client) {
 	if client == nil {
 		return
 	}
@@ -150,14 +152,27 @@ func handlePairSuccess(ctx context.Context, evt *events.PairSuccess) {
 	}
 	primaryDB, secondaryDB := getStoreContainers()
 	syncKeysDevice(ctx, primaryDB, secondaryDB)
+
+	deviceID := evt.ID.ToNonAD().String()
+
+	if len(config.WhatsappWebhook) > 0 {
+		go func(e *events.PairSuccess) {
+			webhookCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+			defer cancel()
+			if err := forwardPairSuccessToWebhook(webhookCtx, e, deviceID); err != nil {
+				logrus.Errorf("Failed to forward PariSuccess event to webhook: %v", err)
+			}
+		}(evt)
+	}
 }
 
-func handleLoggedOut(ctx context.Context, instance *DeviceInstance, chatStorageRepo domainChatStorage.IChatStorageRepository) {
+func handleLoggedOut(ctx context.Context, evt *events.LoggedOut, instance *DeviceInstance, chatStorageRepo domainChatStorage.IChatStorageRepository, client *whatsmeow.Client) {
 	logrus.Warnf("[REMOTE_LOGOUT] Received LoggedOut event for device %s - user logged out from phone", instance.ID())
 
-	if client := instance.GetClient(); client != nil {
+	if client != nil {
 		client.Disconnect()
 	}
+
 	instance.SetState(domainDevice.DeviceStateDisconnected)
 
 	if chatStorageRepo != nil {
@@ -174,6 +189,16 @@ func handleLoggedOut(ctx context.Context, instance *DeviceInstance, chatStorageR
 		Code:    "LOGOUT_COMPLETE",
 		Message: "Remote logout cleanup completed - device removed from server",
 		Result:  map[string]string{"device_id": deviceID},
+	}
+
+	if len(config.WhatsappWebhook) > 0 {
+		go func(e *events.LoggedOut, c *whatsmeow.Client) {
+			webhookCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+			defer cancel()
+			if err := forwardLoggedOutToWebhook(webhookCtx, e, deviceID, c); err != nil {
+				logrus.Errorf("Failed to forward LoggedOut event to webhook: %v", err)
+			}
+		}(evt, client)
 	}
 }
 
@@ -296,5 +321,20 @@ func handleGroupInfo(ctx context.Context, evt *events.GroupInfo, deviceID string
 				logrus.Errorf("Failed to forward group info event to webhook: %v", err)
 			}
 		}(evt, client)
+	}
+}
+
+func handleTemporaryBan(ctx context.Context, evt *events.TemporaryBan, instance *DeviceInstance) {
+	logrus.Warnf("[REMOTE_TEMPORARY_BAN] Received TemporaryBan event for device %s", instance.ID())
+
+	deviceID := instance.ID()
+	if len(config.WhatsappWebhook) > 0 {
+		go func(e *events.TemporaryBan) {
+			webhookCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+			defer cancel()
+			if err := forwardTemporaryBanToWebhook(webhookCtx, e, deviceID); err != nil {
+				logrus.Errorf("Failed to forward TemporaryBan event to webhook: %v", err)
+			}
+		}(evt)
 	}
 }
