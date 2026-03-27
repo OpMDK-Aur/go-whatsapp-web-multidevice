@@ -52,11 +52,17 @@ type DownloadMediaResponse struct {
 	FileSize  int64  `json:"file_size"`
 }
 
-// StreamMediaData holds decrypted media bytes and metadata for streaming to HTTP clients.
-type StreamMediaData struct {
+// holds decrypted media bytes and metadata for streaming to HTTP clients.
+type GetMediaData struct {
 	Data      []byte
 	MimeType  string
 	Filename  string
 	MediaType string
 	FileSize  int64
+}
+
+type DeleteMediaRequest struct {
+	MessageID string `json:"message_id" uri:"message_id"`
+	Phone     string `json:"phone" form:"phone"`
+	FilePath  string `json:"file_path" form:"file_path"`
 }

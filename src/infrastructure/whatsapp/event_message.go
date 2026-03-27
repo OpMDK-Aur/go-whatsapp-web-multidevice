@@ -343,7 +343,7 @@ func buildMediaFields(ctx context.Context, client *whatsmeow.Client, msg *waE2E.
 				imageMedia.GetFileLength(),
 			)
 			if thumbnail := imageMedia.GetJPEGThumbnail(); thumbnail != nil {
-				payload["jpeg_thumbnail"] = base64.StdEncoding.EncodeToString(thumbnail)
+				meta["jpeg_thumbnail"] = base64.StdEncoding.EncodeToString(thumbnail)
 			}
 			if cap := imageMedia.GetCaption(); cap != "" {
 				meta["caption"] = cap
@@ -391,7 +391,7 @@ func buildMediaFields(ctx context.Context, client *whatsmeow.Client, msg *waE2E.
 				videoMedia.GetFileLength(),
 			)
 			if thumbnail := videoMedia.GetJPEGThumbnail(); thumbnail != nil {
-				payload["jpeg_thumbnail"] = base64.StdEncoding.EncodeToString(thumbnail)
+				meta["jpeg_thumbnail"] = base64.StdEncoding.EncodeToString(thumbnail)
 			}
 			if cap := videoMedia.GetCaption(); cap != "" {
 				meta["caption"] = cap

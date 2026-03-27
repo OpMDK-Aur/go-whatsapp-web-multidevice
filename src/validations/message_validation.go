@@ -90,6 +90,20 @@ func ValidateStarMessage(ctx context.Context, request domainMessage.StarRequest)
 	return nil
 }
 
+func ValidateDeleteMedia(ctx context.Context, request domainMessage.DeleteMediaRequest) error {
+	err := validation.ValidateStructWithContext(ctx, &request,
+		validation.Field(&request.Phone, validation.Required),
+		validation.Field(&request.MessageID, validation.Required),
+		validation.Field(&request.FilePath, validation.Required),
+	)
+
+	if err != nil {
+		return pkgError.ValidationError(err.Error())
+	}
+
+	return nil
+}
+
 func ValidateDownloadMedia(ctx context.Context, request domainMessage.DownloadMediaRequest) error {
 	err := validation.ValidateStructWithContext(ctx, &request,
 		validation.Field(&request.Phone, validation.Required),

@@ -388,10 +388,10 @@ func (service serviceMessage) DownloadMedia(ctx context.Context, request domainM
 	return response, nil
 }
 
-func (service serviceMessage) StreamMedia(
+func (service serviceMessage) GetMedia(
 	ctx context.Context,
 	request domainMessage.DownloadMediaRequest,
-) (response domainMessage.StreamMediaData, err error) {
+) (response domainMessage.GetMediaData, err error) {
 	if err = validations.ValidateDownloadMedia(ctx, request); err != nil {
 		return response, err
 	}
@@ -498,4 +498,28 @@ func (service serviceMessage) StreamMedia(
 	})
 
 	return response, nil
+}
+
+// DeleteMedia removes a previously downloaded media file from disk.
+func (service serviceMessage) DeleteMedia(ctx context.Context, request domainMessage.DeleteMediaRequest) error {
+	if err := validations.ValidateDeleteMedia(ctx, request); err != nil {
+		return err
+	}
+
+	if _, err := os.Stat(request.FilePath); os.IsNotExist(err) {
+		return fmt.Errorf("media file not found: %s", request.FilePath)
+	}
+
+	if err := os.Remove(request.FilePath); err != nil {
+		return fmt.Errorf("failed to delete media file: %v", err)
+	}
+
+	logrus.Info(map[string]any{
+		"message_id": request.MessageID,
+		"phone":      request.Phone,
+		"file_path":  request.FilePath,
+		"action":     "delete_media",
+	})
+
+	return nil
 }

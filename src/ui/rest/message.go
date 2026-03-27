@@ -26,7 +26,8 @@ func InitRestMessage(app fiber.Router, service domainMessage.IMessageUsecase) Me
 	app.Post("/message/:message_id/star", rest.StarMessage)
 	app.Post("/message/:message_id/unstar", rest.UnstarMessage)
 	app.Get("/message/:message_id/download", rest.DownloadMedia)
-	app.Get("/message/:message_id/download/stream", rest.StreamMedia)
+	app.Delete("/message/:message_id/download", rest.DeleteMedia)
+	app.Get("/message/:message_id/media", rest.GetMedia)
 	return rest
 }
 
@@ -187,9 +188,28 @@ func (controller *Message) DownloadMedia(c *fiber.Ctx) error {
 	})
 }
 
-// StreamMedia downloads a media message and streams the decrypted bytes directly to the client.
-// GET /message/:message_id/download/stream?phone=<chat_jid>
-func (controller *Message) StreamMedia(c *fiber.Ctx) error {
+func (controller *Message) DeleteMedia(c *fiber.Ctx) error {
+	var request domainMessage.DeleteMediaRequest
+	err := c.BodyParser(&request)
+	utils.PanicIfNeeded(err)
+
+	request.MessageID = c.Params("message_id")
+	utils.SanitizePhone(&request.Phone)
+
+	err = controller.Service.DeleteMedia(c.UserContext(), request)
+	utils.PanicIfNeeded(err)
+
+	return c.JSON(utils.ResponseData{
+		Status:  200,
+		Code:    "SUCCESS",
+		Message: "Media file deleted successfully",
+		Results: nil,
+	})
+}
+
+// downloads a media message and streams the decrypted bytes directly to the client.
+// GET /message/:message_id/media?phone=<chat_jid>
+func (controller *Message) GetMedia(c *fiber.Ctx) error {
 	var request domainMessage.DownloadMediaRequest
 
 	request.MessageID = c.Params("message_id")
@@ -201,7 +221,7 @@ func (controller *Message) StreamMedia(c *fiber.Ctx) error {
 		ctx = whatsapp.ContextWithDevice(ctx, device)
 	}
 
-	data, err := controller.Service.StreamMedia(ctx, request)
+	data, err := controller.Service.GetMedia(ctx, request)
 	utils.PanicIfNeeded(err)
 
 	c.Set("Content-Type", data.MimeType)
