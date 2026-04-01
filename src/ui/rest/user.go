@@ -21,6 +21,7 @@ func InitRestUser(app fiber.Router, service domainUser.IUserUsecase) User {
 	app.Get("/user/my/groups", rest.UserMyListGroups)
 	app.Get("/user/my/newsletters", rest.UserMyListNewsletter)
 	app.Get("/user/my/contacts", rest.UserMyListContacts)
+	app.Get("/user/my/contact", rest.UserMyContact)
 	app.Get("/user/check", rest.UserCheck)
 	app.Get("/user/business-profile", rest.UserBusinessProfile)
 
@@ -140,6 +141,23 @@ func (controller *User) UserMyListContacts(c *fiber.Ctx) error {
 		Status:  200,
 		Code:    "SUCCESS",
 		Message: "Success get list contacts",
+		Results: response,
+	})
+}
+
+func (controller *User) UserMyContact(c *fiber.Ctx) error {
+	var request domainUser.MyContactRequest
+	err := c.QueryParser(&request)
+	utils.PanicIfNeeded(err)
+
+	ctx := whatsapp.ContextWithDevice(c.UserContext(), getDeviceFromCtx(c))
+	response, err := controller.Service.MyContact(ctx, request)
+	utils.PanicIfNeeded(err)
+
+	return c.JSON(utils.ResponseData{
+		Status:  200,
+		Code:    "SUCCESS",
+		Message: "Success get contact",
 		Results: response,
 	})
 }

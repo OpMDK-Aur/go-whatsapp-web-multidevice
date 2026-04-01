@@ -30,10 +30,15 @@ type IUserPrivacy interface {
 	MyPrivacySetting(ctx context.Context) (response MyPrivacySettingResponse, err error)
 }
 
+type IUserContact interface {
+	MyContact(ctx context.Context, request MyContactRequest) (response MyContactResponse, err error)
+}
+
 // IUserUsecase combines all user interfaces for backward compatibility
 type IUserUsecase interface {
 	IUserInfo
 	IUserProfile
 	IUserListing
 	IUserPrivacy
+	IUserContact
 }

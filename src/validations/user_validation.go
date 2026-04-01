@@ -33,6 +33,18 @@ func ValidateUserAvatar(ctx context.Context, request domainUser.AvatarRequest) e
 	return nil
 }
 
+func ValidateMyContact(ctx context.Context, request domainUser.MyContactRequest) error {
+	err := validation.ValidateStructWithContext(ctx, &request,
+		validation.Field(&request.ContactJID, validation.Required),
+	)
+
+	if err != nil {
+		return pkgError.ValidationError(err.Error())
+	}
+
+	return nil
+}
+
 func ValidateBusinessProfile(ctx context.Context, request domainUser.BusinessProfileRequest) error {
 	err := validation.ValidateStructWithContext(ctx, &request,
 		validation.Field(&request.Phone, validation.Required),
@@ -44,3 +56,4 @@ func ValidateBusinessProfile(ctx context.Context, request domainUser.BusinessPro
 
 	return nil
 }
+

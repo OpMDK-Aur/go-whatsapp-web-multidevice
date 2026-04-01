@@ -314,6 +314,48 @@ func (service serviceUser) MyListContacts(ctx context.Context) (response domainU
 	return response, nil
 }
 
+func (service serviceUser) MyContact(ctx context.Context, request domainUser.MyContactRequest) (response domainUser.MyContactResponse, err error) {
+	err = validations.ValidateMyContact(ctx, request)
+	if err != nil {
+		return response, err
+	}
+
+	client := whatsapp.ClientFromContext(ctx)
+	if client == nil {
+		return response, pkgError.ErrWaCLI
+	}
+	utils.MustLogin(client)
+
+	jid, err := utils.ParseJID(request.ContactJID)
+	if err != nil {
+		return response, err
+	}
+
+	contact, err := client.Store.Contacts.GetContact(ctx, jid)
+	if err != nil {
+		return response, err
+	}
+	if !contact.Found {
+		return response, errors.New("contact not found")
+	}
+
+	response.JID = jid
+	response.FirstName = contact.FirstName
+	response.FullName = contact.FullName
+	response.PushName = contact.PushName
+	response.BusinessName = contact.BusinessName
+	response.RedactedPhone = contact.RedactedPhone
+
+	avatarCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+	pic, err := client.GetProfilePictureInfo(avatarCtx, jid, &whatsmeow.GetProfilePictureParams{Preview: false})
+	if err == nil && pic != nil {
+		response.AvatarURL = pic.URL
+	}
+
+	return response, nil
+}
+
 func (service serviceUser) ChangeAvatar(ctx context.Context, request domainUser.ChangeAvatarRequest) (err error) {
 	client := whatsapp.ClientFromContext(ctx)
 	if client == nil {
