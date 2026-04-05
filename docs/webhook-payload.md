@@ -169,16 +169,16 @@ Sent when a device successfully connects to WhatsApp after pairing.
 ```json
 {
   "event": "connected",
-  "device_id": "my-device-alias",
-  "device_jid": "628123456789@s.whatsapp.net",
+  "instance_id": "my-device-alias",
+  "device_id": "628123456789@s.whatsapp.net",
   "timestamp": "2026-04-05T10:30:00Z",
 }
 ```
 
 | **Field**    | **Type** | **Description**                                           |
 |--------------|----------|-----------------------------------------------------------|
-| `device_id`  | string   | User-defined device identifier (e.g., "my-device")        |
-| `device_jid` | string   | WhatsApp JID of the device (e.g., "628123456789@s.whatsapp.net") |
+| `instance_id`  | string   | User-defined device identifier (e.g., "my-device")        |
+| `device_id` | string   | WhatsApp JID of the device (e.g., "628123456789@s.whatsapp.net") |
 
 ## Logged Out Event
 
@@ -187,6 +187,7 @@ Sent when the device is logged out remotely (e.g., from the phone or due to an e
 ```json
 {
   "event": "loggedout",
+  "instance_id": "my-device-alias",
   "device_id": "628123456789@s.whatsapp.net",
   "timestamp": "2026-04-05T10:30:00Z",
   "payload": {
@@ -1299,10 +1300,8 @@ app.post('/webhook', (req, res) => {
     switch (data.event) {
         case 'connected':
             console.log('Device connected:', {
+                instance_id: data.instance_id,
                 device_id: data.device_id,
-                device_jid: data.device_jid,
-                pushname: data.pushname,
-                platform: data.platform
             });
             break;
 

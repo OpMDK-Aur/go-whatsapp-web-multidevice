@@ -40,7 +40,7 @@ func handler(ctx context.Context, instance *DeviceInstance, rawEvt any) {
 	case *events.LoggedOut:
 		handleLoggedOut(ctx, evt, instance, chatStorageRepo, client)
 	case *events.TemporaryBan:
-		handleTemporaryBan(ctx, evt, instance)
+		handleTemporaryBan(ctx, evt, instance.JID())
 	case *events.Connected:
 		handleConnected(ctx, client, instance)
 	case *events.PushNameSetting:
@@ -171,7 +171,8 @@ func handleLoggedOut(ctx context.Context, evt *events.LoggedOut, instance *Devic
 		}
 	}
 
-	deviceID := instance.ID()
+	deviceID := instance.JID()
+	instanceID := instance.ID()
 
 	instance.TriggerLoggedOut()
 
@@ -182,13 +183,13 @@ func handleLoggedOut(ctx context.Context, evt *events.LoggedOut, instance *Devic
 	}
 
 	if len(config.WhatsappWebhook) > 0 {
-		go func(e *events.LoggedOut, c *whatsmeow.Client) {
+		go func(e *events.LoggedOut) {
 			webhookCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 			defer cancel()
-			if err := forwardLoggedOutToWebhook(webhookCtx, e, deviceID, c); err != nil {
+			if err := forwardLoggedOutToWebhook(webhookCtx, e, deviceID, instanceID); err != nil {
 				logrus.Errorf("Failed to forward PariSuccess event to webhook: %v", err)
 			}
-		}(evt, client)
+		}(evt)
 	}
 }
 
@@ -216,19 +217,19 @@ func handleConnected(_ context.Context, client *whatsmeow.Client, instance *Devi
 			}
 		}
 
-		deviceJID := ""
+		instanceID := ""
 		deviceID := ""
 		if jid := instance.JID(); jid != "" {
-			deviceJID = jid
+			deviceID = jid
 		}
 		if id := instance.ID(); id != "" {
-			deviceID = id
+			instanceID = id
 		}
 		if len(config.WhatsappWebhook) > 0 {
 			go func() {
 				webhookCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 				defer cancel()
-				if err := forwardConnectedToWebhook(webhookCtx, deviceID, deviceJID); err != nil {
+				if err := forwardConnectedToWebhook(webhookCtx, deviceID, instanceID); err != nil {
 					logrus.Errorf("Failed to forward Connected event to webhook: %v", err)
 				}
 			}()
@@ -366,10 +367,9 @@ func handleGroupInfo(ctx context.Context, evt *events.GroupInfo, deviceID string
 	}
 }
 
-func handleTemporaryBan(ctx context.Context, evt *events.TemporaryBan, instance *DeviceInstance) {
-	logrus.Warnf("[REMOTE_TEMPORARY_BAN] Received TemporaryBan event for device %s", instance.ID())
+func handleTemporaryBan(ctx context.Context, evt *events.TemporaryBan, deviceID string) {
+	logrus.Warnf("[REMOTE_TEMPORARY_BAN] Received TemporaryBan event for device %s", deviceID)
 
-	deviceID := instance.ID()
 	if len(config.WhatsappWebhook) > 0 {
 		go func(e *events.TemporaryBan) {
 			webhookCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
