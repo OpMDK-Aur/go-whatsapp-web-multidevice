@@ -14,7 +14,7 @@ The following events can be received via webhook:
 
 | Event                | Description                                             |
 |----------------------|---------------------------------------------------------|
-| `pairsuccess`        | Login success (includes DeviceName, BusinessName, Platform) |
+| `connected`          | Device successfully connected to WhatsApp               |
 | `loggedout`          | The device was logged out from another device or from error |
 | `temporaryban`       | Connection failure with the temporal ban code           |
 | `message`            | Text, media, contact, location, and other message types |
@@ -142,7 +142,7 @@ All webhook payloads follow a consistent top-level structure:
 
 | **Field**   | **Type** | **Description**                                                                                                     |
 |-------------|----------|---------------------------------------------------------------------------------------------------------------------|
-| `event`     | string   | Event type: `pairsuccess`, `loggedout`, `temporaryban`, `message`, `message.reaction`, `message.revoked`, `message.edited`, `message.ack`, `message.deleted`, `chat_presence`, `group.participants`, `group.joined`, `newsletter.joined`, `newsletter.left`, `newsletter.message`, `newsletter.mute`, `call.offer` |
+| `event`     | string   | Event type: `connected`, `loggedout`, `temporaryban`, `message`, `message.reaction`, `message.revoked`, `message.edited`, `message.ack`, `message.deleted`, `chat_presence`, `group.participants`, `group.joined`, `newsletter.joined`, `newsletter.left`, `newsletter.message`, `newsletter.mute`, `call.offer` |
 | `device_id` | string   | JID of the device that received this event (e.g., `628123456789@s.whatsapp.net`)                                    |
 | `timestamp` | string   | RFC3339 formatted timestamp when the event was processed (e.g., `2026-01-22T12:00:00Z`)                             |
 | `payload`   | object   | Event-specific payload data                                                                                         |
@@ -162,28 +162,23 @@ Fields commonly found inside the `payload` object:
 | `timestamp` | string   | RFC3339 formatted timestamp (e.g., `2023-10-15T10:30:00Z`)                    |
 | `is_from_me` | boolean | Whether the message was sent by the current user                              |
 
-## Pair Success Event
+## Connected Event
 
-Sent when a device successfully pairs via QR code.
+Sent when a device successfully connects to WhatsApp after pairing.
 
 ```json
 {
-  "event": "pairsuccess",
-  "device_id": "628123456789@s.whatsapp.net",
+  "event": "connected",
+  "device_id": "my-device-alias",
+  "device_jid": "628123456789@s.whatsapp.net",
   "timestamp": "2026-04-05T10:30:00Z",
-  "payload": {
-    "BusinessName": "My Business",
-    "Platfrom": "android",
-    "DeviceName": "John"
-  }
 }
 ```
 
-| **Field**      | **Type** | **Description**                              |
-|----------------|----------|----------------------------------------------|
-| `BusinessName` | string   | Business name of the paired account          |
-| `Platfrom`     | string   | Platform of the paired device (e.g., android, iphone) |
-| `DeviceName`   | string   | Display name (push name) of the paired device |
+| **Field**    | **Type** | **Description**                                           |
+|--------------|----------|-----------------------------------------------------------|
+| `device_id`  | string   | User-defined device identifier (e.g., "my-device")        |
+| `device_jid` | string   | WhatsApp JID of the device (e.g., "628123456789@s.whatsapp.net") |
 
 ## Logged Out Event
 
@@ -1302,11 +1297,12 @@ app.post('/webhook', (req, res) => {
 
     // Handle different event types based on data.event
     switch (data.event) {
-        case 'pairsuccess':
-            console.log('Device paired:', {
+        case 'connected':
+            console.log('Device connected:', {
                 device_id: data.device_id,
-                device_name: data.payload.DeviceName,
-                platform: data.payload.Platfrom
+                device_jid: data.device_jid,
+                pushname: data.pushname,
+                platform: data.platform
             });
             break;
 

@@ -36,13 +36,15 @@ func handler(ctx context.Context, instance *DeviceInstance, rawEvt any) {
 	case *events.AppStateSyncComplete:
 		handleAppStateSyncComplete(ctx, evt, client)
 	case *events.PairSuccess:
-		handlePairSuccess(ctx, evt, instance)
+		handlePairSuccess(ctx, evt)
 	case *events.LoggedOut:
 		handleLoggedOut(ctx, evt, instance, chatStorageRepo, client)
 	case *events.TemporaryBan:
 		handleTemporaryBan(ctx, evt, instance)
-	case *events.Connected, *events.PushNameSetting:
-		handleConnectionEvents(ctx, client, instance)
+	case *events.Connected:
+		handleConnected(ctx, client, instance)
+	case *events.PushNameSetting:
+		handlePushNameEvents(ctx, client, instance)
 	case *events.StreamReplaced:
 		handleStreamReplaced(ctx)
 	case *events.Message:
@@ -136,7 +138,7 @@ func sendConfiguredPresence(ctx context.Context, client *whatsmeow.Client) {
 	}
 }
 
-func handleAppStateSyncComplete(_ context.Context,  evt *events.AppStateSyncComplete, client *whatsmeow.Client) {
+func handleAppStateSyncComplete(_ context.Context, evt *events.AppStateSyncComplete, client *whatsmeow.Client) {
 	if client == nil {
 		return
 	}
@@ -145,29 +147,13 @@ func handleAppStateSyncComplete(_ context.Context,  evt *events.AppStateSyncComp
 	}
 }
 
-func handlePairSuccess(ctx context.Context, evt *events.PairSuccess, instance *DeviceInstance) {
+func handlePairSuccess(ctx context.Context, evt *events.PairSuccess) {
 	websocket.Broadcast <- websocket.BroadcastMessage{
 		Code:    "LOGIN_SUCCESS",
 		Message: fmt.Sprintf("Successfully pair with %s", evt.ID.String()),
 	}
 	primaryDB, secondaryDB := getStoreContainers()
 	syncKeysDevice(ctx, primaryDB, secondaryDB)
-
-	deviceID := evt.ID.ToNonAD().String()
-	deviceName := ""
-	if instance != nil {
-		deviceName = instance.DisplayName()
-	}
-
-	if len(config.WhatsappWebhook) > 0 {
-		go func(e *events.PairSuccess) {
-			webhookCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-			defer cancel()
-			if err := forwardPairSuccessToWebhook(webhookCtx, e, deviceID, deviceName); err != nil {
-				logrus.Errorf("Failed to forward PariSuccess event to webhook: %v", err)
-			}
-		}(evt)
-	}
 }
 
 func handleLoggedOut(ctx context.Context, evt *events.LoggedOut, instance *DeviceInstance, chatStorageRepo domainChatStorage.IChatStorageRepository, client *whatsmeow.Client) {
@@ -200,13 +186,65 @@ func handleLoggedOut(ctx context.Context, evt *events.LoggedOut, instance *Devic
 			webhookCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 			defer cancel()
 			if err := forwardLoggedOutToWebhook(webhookCtx, e, deviceID, c); err != nil {
-				logrus.Errorf("Failed to forward LoggedOut event to webhook: %v", err)
+				logrus.Errorf("Failed to forward PariSuccess event to webhook: %v", err)
 			}
 		}(evt, client)
 	}
 }
 
-func handleConnectionEvents(_ context.Context, client *whatsmeow.Client, instance *DeviceInstance) {
+func handleConnected(_ context.Context, client *whatsmeow.Client, instance *DeviceInstance) {
+	if client == nil {
+		return
+	}
+	if instance != nil {
+		instance.UpdateStateFromClient()
+
+		// Persist updated JID/DisplayName to database after successful connection
+		// Skip if instance.ID looks like a JID (auto-created device) to avoid recreating deleted duplicates
+		if repo := instance.GetChatStorage(); repo != nil && !strings.Contains(instance.ID(), "@") {
+			jid := instance.JID()
+			displayName := instance.DisplayName()
+			if jid != "" {
+				if err := repo.SaveDeviceRecord(&domainChatStorage.DeviceRecord{
+					DeviceID:    instance.ID(),
+					DisplayName: displayName,
+					JID:         jid,
+					CreatedAt:   instance.CreatedAt(),
+				}); err != nil {
+					log.Warnf("Failed to persist device record for %s: %v", instance.ID(), err)
+				}
+			}
+		}
+
+		deviceJID := ""
+		deviceID := ""
+		if jid := instance.JID(); jid != "" {
+			deviceJID = jid
+		}
+		if id := instance.ID(); id != "" {
+			deviceID = id
+		}
+		if len(config.WhatsappWebhook) > 0 {
+			go func() {
+				webhookCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+				defer cancel()
+				if err := forwardConnectedToWebhook(webhookCtx, deviceID, deviceJID); err != nil {
+					logrus.Errorf("Failed to forward Connected event to webhook: %v", err)
+				}
+			}()
+		}
+	}
+	if len(client.Store.PushName) == 0 {
+		return
+	}
+
+	// Send configured presence when connecting and when the pushname is changed.
+	// This makes sure that outgoing messages always have the right pushname.
+	sendConfiguredPresence(context.Background(), client)
+
+}
+
+func handlePushNameEvents(_ context.Context, client *whatsmeow.Client, instance *DeviceInstance) {
 	if client == nil {
 		return
 	}
