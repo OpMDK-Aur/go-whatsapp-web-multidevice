@@ -152,6 +152,7 @@ func (controller *User) UserMyContact(c *fiber.Ctx) error {
 
 	ctx := whatsapp.ContextWithDevice(c.UserContext(), getDeviceFromCtx(c))
 	response, err := controller.Service.MyContact(ctx, request)
+
 	utils.PanicIfNeeded(err)
 
 	return c.JSON(utils.ResponseData{

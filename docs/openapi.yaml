@@ -749,6 +749,41 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorInternalServer'
+  /user/my/contact:
+    get:
+      operationId: userMyContact
+      tags:
+        - user
+      summary: Get contact details
+      description: Get detailed information about a specific contact including avatar URL
+      parameters:
+        - $ref: '#/components/parameters/DeviceIdHeader'
+        - name: contact_jid
+          in: query
+          schema:
+            type: string
+          required: true
+          example: '628123456789@s.whatsapp.net'
+          description: JID of the contact to retrieve
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MyContactResponse'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBadRequest'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorInternalServer'
   /user/check:
     get:
       operationId: userCheck
@@ -1886,6 +1921,153 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorInternalServer'
+    delete:
+      operationId: deleteMessageMedia
+      tags:
+        - message
+      summary: Delete downloaded media file
+      description: Delete a previously downloaded media file from local storage
+      parameters:
+        - $ref: '#/components/parameters/DeviceIdHeader'
+        - in: path
+          name: message_id
+          schema:
+            type: string
+          required: true
+          description: Message ID
+          example: '3EB0123456789ABCDEF'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                phone:
+                  type: string
+                  example: '6289685028129@s.whatsapp.net'
+                  description: Phone number / chat JID
+                file_path:
+                  type: string
+                  example: 'statics/media/1752404751-image.jpeg'
+                  description: Path to the media file to delete
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: integer
+                    example: 200
+                  code:
+                    type: string
+                    example: SUCCESS
+                  message:
+                    type: string
+                    example: Media file deleted successfully
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBadRequest'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorInternalServer'
+  /message/{message_id}/media:
+    get:
+      operationId: getMessageMedia
+      tags:
+        - message
+      summary: Stream media from message
+      description: Retrieve and stream decrypted media content directly from WhatsApp servers. Returns the raw binary data with appropriate Content-Type headers.
+      parameters:
+        - $ref: '#/components/parameters/DeviceIdHeader'
+        - in: path
+          name: message_id
+          schema:
+            type: string
+          required: true
+          description: Message ID
+          example: '3EB0123456789ABCDEF'
+        - in: query
+          name: phone
+          schema:
+            type: string
+          required: true
+          description: Phone number / chat JID
+          example: '6289685028129@s.whatsapp.net'
+      responses:
+        '200':
+          description: Raw media binary stream
+          headers:
+            Content-Type:
+              schema:
+                type: string
+              description: MIME type of the media (e.g., image/jpeg, video/mp4)
+            Content-Disposition:
+              schema:
+                type: string
+              description: 'Attachment filename (e.g., attachment; filename="image.jpeg")'
+            Content-Length:
+              schema:
+                type: string
+              description: File size in bytes
+            X-File-Name:
+              schema:
+                type: string
+              description: Original filename
+            X-Media-Type:
+              schema:
+                type: string
+              description: Media type (e.g., image, video, audio, document)
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBadRequest'
+        '404':
+          description: Message or media not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorNotFound'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorInternalServer'
+
+  /health:
+    get:
+      operationId: healthCheck
+      tags:
+        - app
+      summary: Health check
+      description: Health check endpoint for infrastructure probes
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
 
   /chats:
     get:
@@ -3984,6 +4166,40 @@ components:
           type: string
           example: "Aldino Kemal"
 
+
+    MyContactResponse:
+      type: object
+      properties:
+        code:
+          type: string
+          example: "SUCCESS"
+        message:
+          type: string
+          example: "Success get contact"
+        results:
+          type: object
+          properties:
+            jid:
+              type: string
+              example: "628123456789@s.whatsapp.net"
+            first_name:
+              type: string
+              example: "John"
+            full_name:
+              type: string
+              example: "John Doe"
+            push_name:
+              type: string
+              example: "JohnD"
+            business_name:
+              type: string
+              example: ""
+            redacted_phone:
+              type: string
+              example: "+62 812-XXX-XXXX"
+            avatar_url:
+              type: string
+              example: "https://pps.whatsapp.net/..."
 
     GroupParticipantRequestItem:
       type: object

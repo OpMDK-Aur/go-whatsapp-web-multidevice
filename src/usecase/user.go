@@ -348,7 +348,13 @@ func (service serviceUser) MyContact(ctx context.Context, request domainUser.MyC
 
 	avatarCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
-	pic, err := client.GetProfilePictureInfo(avatarCtx, jid, &whatsmeow.GetProfilePictureParams{Preview: false})
+	pic, err := client.GetProfilePictureInfo(
+		avatarCtx,
+		jid,
+		&whatsmeow.GetProfilePictureParams{
+			Preview: false,
+		},
+	)
 	if err == nil && pic != nil {
 		response.AvatarURL = pic.URL
 	}

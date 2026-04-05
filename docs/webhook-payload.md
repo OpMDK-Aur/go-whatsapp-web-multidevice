@@ -14,8 +14,8 @@ The following events can be received via webhook:
 
 | Event                | Description                                             |
 |----------------------|---------------------------------------------------------|
-| `pairsuccess`        | Loggin success                                          |
-| `loggout`            | The device was logged out from other device or from error |
+| `pairsuccess`        | Login success (includes DeviceName, BusinessName, Platform) |
+| `loggedout`          | The device was logged out from another device or from error |
 | `temporaryban`       | Connection failure with the temporal ban code           |
 | `message`            | Text, media, contact, location, and other message types |
 | `message.reaction`   | Emoji reactions to messages                             |
@@ -142,8 +142,9 @@ All webhook payloads follow a consistent top-level structure:
 
 | **Field**   | **Type** | **Description**                                                                                                     |
 |-------------|----------|---------------------------------------------------------------------------------------------------------------------|
-| `event`     | string   | Event type: `message`, `message.reaction`, `message.revoked`, `message.edited`, `message.ack`, `message.deleted`, `chat_presence`, `group.participants`, `group.joined`, `newsletter.joined`, `newsletter.left`, `newsletter.message`, `newsletter.mute`, `call.offer` |
+| `event`     | string   | Event type: `pairsuccess`, `loggedout`, `temporaryban`, `message`, `message.reaction`, `message.revoked`, `message.edited`, `message.ack`, `message.deleted`, `chat_presence`, `group.participants`, `group.joined`, `newsletter.joined`, `newsletter.left`, `newsletter.message`, `newsletter.mute`, `call.offer` |
 | `device_id` | string   | JID of the device that received this event (e.g., `628123456789@s.whatsapp.net`)                                    |
+| `timestamp` | string   | RFC3339 formatted timestamp when the event was processed (e.g., `2026-01-22T12:00:00Z`)                             |
 | `payload`   | object   | Event-specific payload data                                                                                         |
 
 ### Common Payload Fields
@@ -154,11 +155,81 @@ Fields commonly found inside the `payload` object:
 |-------------|----------|-------------------------------------------------------------------------------|
 | `id`        | string   | Message ID                                                                    |
 | `chat_id`   | string   | Chat JID (e.g., `628987654321@s.whatsapp.net` or `120363...@g.us` for groups) |
+| `chat_lid`  | string   | LID (Linked ID) of the chat if the original JID is a LID                      |
 | `from`      | string   | Full JID of the sender (e.g., `628123456789@s.whatsapp.net`)                  |
 | `from_lid`  | string   | LID (Linked ID) of the sender if available                                    |
 | `from_name` | string   | Display name (pushname) of the sender                                         |
 | `timestamp` | string   | RFC3339 formatted timestamp (e.g., `2023-10-15T10:30:00Z`)                    |
 | `is_from_me` | boolean | Whether the message was sent by the current user                              |
+
+## Pair Success Event
+
+Sent when a device successfully pairs via QR code.
+
+```json
+{
+  "event": "pairsuccess",
+  "device_id": "628123456789@s.whatsapp.net",
+  "timestamp": "2026-04-05T10:30:00Z",
+  "payload": {
+    "BusinessName": "My Business",
+    "Platfrom": "android",
+    "DeviceName": "John"
+  }
+}
+```
+
+| **Field**      | **Type** | **Description**                              |
+|----------------|----------|----------------------------------------------|
+| `BusinessName` | string   | Business name of the paired account          |
+| `Platfrom`     | string   | Platform of the paired device (e.g., android, iphone) |
+| `DeviceName`   | string   | Display name (push name) of the paired device |
+
+## Logged Out Event
+
+Sent when the device is logged out remotely (e.g., from the phone or due to an error).
+
+```json
+{
+  "event": "loggedout",
+  "device_id": "628123456789@s.whatsapp.net",
+  "timestamp": "2026-04-05T10:30:00Z",
+  "payload": {
+    "on_connect": false,
+    "reason": 1,
+    "reason_description": "logged_out"
+  }
+}
+```
+
+| **Field**              | **Type** | **Description**                                       |
+|------------------------|----------|-------------------------------------------------------|
+| `on_connect`           | boolean  | Whether the logout happened during a connection attempt |
+| `reason`               | integer  | Numeric reason code for the logout                    |
+| `reason_description`   | string   | Human-readable description of the logout reason       |
+
+## Temporary Ban Event
+
+Sent when the device receives a temporary ban from WhatsApp.
+
+```json
+{
+  "event": "temporaryban",
+  "device_id": "628123456789@s.whatsapp.net",
+  "timestamp": "2026-04-05T10:30:00Z",
+  "payload": {
+    "expire": "2026-04-05T11:30:00Z",
+    "code": 503,
+    "code_description": "temporarily_unavailable"
+  }
+}
+```
+
+| **Field**            | **Type** | **Description**                                       |
+|----------------------|----------|-------------------------------------------------------|
+| `expire`             | string   | When the ban expires                                  |
+| `code`               | integer  | Numeric ban code                                      |
+| `code_description`   | string   | Human-readable description of the ban code            |
 
 ## Message Events
 
@@ -279,8 +350,8 @@ Triggered when a message is read by the recipient (they opened the chat and saw 
 | `payload.chat_id`                  | string   | Chat identifier (group or individual chat)                |
 | `payload.from`                     | string   | JID of the user who triggered the receipt                 |
 | `payload.from_lid`                 | string   | LID of the user (if available)                            |
-| `payload.receipt_type`             | string   | Type of receipt: `"delivered"`, `"read"`, etc.            |
-| `payload.receipt_type_description` | string   | Human-readable description of the receipt type            |
+| `payload.receipt_type`             | string   | Type of receipt: `"delivered"`, `"read"`, etc.             |
+| `payload.receipt_type_description` | string   | Human-readable description of the receipt type (optional)  |
 
 ## Chat Presence Events
 
@@ -474,6 +545,35 @@ Triggered when users are demoted from admin.
 | `payload.chat_id` | string   | Group identifier (e.g., `"120363402106XXXXX@g.us"`)          |
 | `payload.type`    | string   | Action type: `"join"`, `"leave"`, `"promote"`, or `"demote"` |
 | `payload.jids`    | array    | Array of user JIDs affected by this action                   |
+
+### Group Joined
+
+Triggered when the current device is added to a group.
+
+```json
+{
+  "event": "group.joined",
+  "device_id": "628123456789@s.whatsapp.net",
+  "timestamp": "2025-07-28T10:35:00Z",
+  "payload": {
+    "chat_id": "120363402106XXXXX@g.us",
+    "type": "join",
+    "jids": [
+      "628123456789@s.whatsapp.net"
+    ],
+    "reason": "invite",
+    "group_name": "Project Team"
+  }
+}
+```
+
+| **Field**             | **Type** | **Description**                                         |
+|-----------------------|----------|---------------------------------------------------------|
+| `payload.chat_id`    | string   | Group identifier                                        |
+| `payload.type`       | string   | Always `"join"`                                         |
+| `payload.jids`       | array    | Array containing the current device's JID               |
+| `payload.reason`     | string   | How the user was added (e.g., `"invite"`)               |
+| `payload.group_name` | string   | Name of the group (optional)                            |
 
 ## Newsletter Events
 
@@ -1202,6 +1302,29 @@ app.post('/webhook', (req, res) => {
 
     // Handle different event types based on data.event
     switch (data.event) {
+        case 'pairsuccess':
+            console.log('Device paired:', {
+                device_id: data.device_id,
+                device_name: data.payload.DeviceName,
+                platform: data.payload.Platfrom
+            });
+            break;
+
+        case 'loggedout':
+            console.log('Device logged out:', {
+                device_id: data.device_id,
+                reason: data.payload.reason_description
+            });
+            break;
+
+        case 'temporaryban':
+            console.log('Temporary ban:', {
+                device_id: data.device_id,
+                expire: data.payload.expire,
+                code: data.payload.code_description
+            });
+            break;
+
         case 'message':
             console.log('New message:', {
                 id: data.payload.id,
@@ -1234,6 +1357,21 @@ app.post('/webhook', (req, res) => {
                 chat_id: data.payload.chat_id,
                 message_ids: data.payload.ids,
                 description: data.payload.receipt_type_description
+            });
+            break;
+
+        case 'message.deleted':
+            console.log('Message deleted:', {
+                deleted_id: data.payload.deleted_message_id,
+                chat_id: data.payload.chat_id
+            });
+            break;
+
+        case 'chat_presence':
+            console.log('Chat presence:', {
+                from: data.payload.from,
+                state: data.payload.state,
+                media: data.payload.media
             });
             break;
 
