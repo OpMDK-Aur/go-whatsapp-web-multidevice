@@ -442,6 +442,14 @@ func (service serviceMessage) GetMedia(
 			FileEncSHA256: message.FileEncSHA256,
 			FileLength:    proto.Uint64(message.FileLength),
 		}
+	case "video_note":
+		downloadableMsg = &waE2E.VideoMessage{
+			URL:           proto.String(message.URL),
+			MediaKey:      message.MediaKey,
+			FileSHA256:    message.FileSHA256,
+			FileEncSHA256: message.FileEncSHA256,
+			FileLength:    proto.Uint64(message.FileLength),
+		}
 	case "audio":
 		downloadableMsg = &waE2E.AudioMessage{
 			URL:           proto.String(message.URL),
