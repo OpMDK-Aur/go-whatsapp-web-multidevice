@@ -77,9 +77,10 @@ func (controller *Send) SendFile(c *fiber.Ctx) error {
 	utils.PanicIfNeeded(err)
 
 	file, err := c.FormFile("file")
-	utils.PanicIfNeeded(err)
+	if err == nil {
+		request.File = file
+	}
 
-	request.File = file
 	utils.SanitizePhone(&request.Phone)
 
 	response, err := controller.Service.SendFile(whatsapp.ContextWithDevice(c.UserContext(), getDeviceFromCtx(c)), request)
