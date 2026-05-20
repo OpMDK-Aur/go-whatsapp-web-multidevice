@@ -295,6 +295,7 @@ func buildMediaFields(ctx context.Context, client *whatsmeow.Client, msg *waE2E.
 				audioMedia.GetFileEncSHA256(),
 				audioMedia.GetFileLength(),
 			)
+			meta["seconds"] = audioMedia.GetSeconds();
 			meta["is_ptt"] = audioMedia.GetPTT()
 			payload["audio"] = meta
 		}
