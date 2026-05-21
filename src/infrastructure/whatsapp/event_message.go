@@ -549,3 +549,27 @@ func buildConversionMessageTypes(msg *waE2E.Message, payload map[string]any) {
 	}
 }
 */
+
+func buildWebhookContactPayload(contact *waE2E.ContactMessage) webhookContactPayload {
+	if contact == nil {
+		return webhookContactPayload{}
+	}
+
+	vcard := contact.GetVcard()
+	return webhookContactPayload{
+		DisplayName: contact.GetDisplayName(),
+		VCard:       vcard,
+		PhoneNumber: extractPhoneFromVCard(vcard),
+	}
+}
+
+func buildWebhookContactsArrayPayload(contacts []*waE2E.ContactMessage) []webhookContactPayload {
+	result := make([]webhookContactPayload, 0, len(contacts))
+	for _, contact := range contacts {
+		if contact == nil {
+			continue
+		}
+		result = append(result, buildWebhookContactPayload(contact))
+	}
+	return result
+}
