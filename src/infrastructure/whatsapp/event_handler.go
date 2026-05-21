@@ -36,7 +36,7 @@ func handler(ctx context.Context, instance *DeviceInstance, rawEvt any) {
 	case *events.AppStateSyncComplete:
 		handleAppStateSyncComplete(ctx, evt, client)
 	case *events.PairSuccess:
-		handlePairSuccess(ctx, evt)
+		handlePairSuccess(ctx, evt, instance)
 	case *events.LoggedOut:
 		handleLoggedOut(ctx, evt, instance, chatStorageRepo, client)
 	case *events.TemporaryBan:
@@ -147,7 +147,7 @@ func handleAppStateSyncComplete(_ context.Context, evt *events.AppStateSyncCompl
 	}
 }
 
-func handlePairSuccess(ctx context.Context, evt *events.PairSuccess) {
+func handlePairSuccess(ctx context.Context, evt *events.PairSuccess, instance *DeviceInstance) {
 	websocket.Broadcast <- websocket.BroadcastMessage{
 		Code:    "LOGIN_SUCCESS",
 		Message: fmt.Sprintf("Successfully pair with %s", evt.ID.String()),
@@ -156,12 +156,16 @@ func handlePairSuccess(ctx context.Context, evt *events.PairSuccess) {
 	syncKeysDevice(ctx, primaryDB, secondaryDB)
 
 	deviceID := evt.ID.ToNonAD().String()
+	deviceName := ""
+	if instance != nil {
+		deviceName = instance.DisplayName()
+	}
 
 	if len(config.WhatsappWebhook) > 0 {
 		go func(e *events.PairSuccess) {
 			webhookCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 			defer cancel()
-			if err := forwardPairSuccessToWebhook(webhookCtx, e, deviceID); err != nil {
+			if err := forwardPairSuccessToWebhook(webhookCtx, e, deviceID, deviceName); err != nil {
 				logrus.Errorf("Failed to forward PariSuccess event to webhook: %v", err)
 			}
 		}(evt)
