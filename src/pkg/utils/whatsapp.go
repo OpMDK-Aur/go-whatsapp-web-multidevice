@@ -796,23 +796,34 @@ func ExtractExternalAdReply(msg *waE2E.Message) map[string]any {
 	if v := ad.GetCtwaClid(); v != "" {
 		referral["ctwa_clid"] = v
 	}
-	if v := ad.GetSourceURL(); v != "" {
-		referral["source_url"] = v
-	}
+
 	if v := ad.GetSourceID(); v != "" {
 		referral["source_id"] = v
-	}
-	if v := ad.GetRef(); v != "" {
-		referral["ref"] = v
 	}
 	if v := ad.GetSourceApp(); v != "" {
 		referral["source_app"] = v
 	}
+	if v := ad.GetSourceURL(); v != "" {
+		referral["source_url"] = v
+	}
+	if v := ad.GetSourceType(); v != "" {
+		referral["source_type"] = v
+	}
+
+	if v := ad.GetRef(); v != "" {
+		referral["ref"] = v
+	}
+
 	if v := ad.GetTitle(); v != "" {
 		referral["ad_title"] = v
 	}
+	/*
 	if v := ad.GetBody(); v != "" {
 		referral["ad_body"] = v
+	}
+	*/
+	if ad.AdType != nil {
+		referral["ad_type"] = ad.GetAdType().String()
 	}
 	if v := ad.GetThumbnailURL(); v != "" {
 		referral["thumbnail_url"] = v
@@ -826,6 +837,7 @@ func ExtractExternalAdReply(msg *waE2E.Message) map[string]any {
 	if ad.MediaType != nil {
 		referral["media_type"] = ad.GetMediaType().String()
 	}
+
 	if ad.ShowAdAttribution != nil {
 		referral["show_ad_attribution"] = ad.GetShowAdAttribution()
 	}
@@ -840,12 +852,6 @@ func ExtractExternalAdReply(msg *waE2E.Message) map[string]any {
 	}
 	if ad.ClickToWhatsappCall != nil {
 		referral["click_to_whatsapp_call"] = ad.GetClickToWhatsappCall()
-	}
-	if v := ad.GetSourceType(); v != "" {
-		referral["source_type"] = v
-	}
-	if ad.AdType != nil {
-		referral["ad_type"] = ad.GetAdType().String()
 	}
 
 	if len(referral) == 0 {

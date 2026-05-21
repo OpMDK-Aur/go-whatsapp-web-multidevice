@@ -154,6 +154,18 @@ func handlePairSuccess(ctx context.Context, evt *events.PairSuccess) {
 	}
 	primaryDB, secondaryDB := getStoreContainers()
 	syncKeysDevice(ctx, primaryDB, secondaryDB)
+
+	deviceID := evt.ID.ToNonAD().String()
+
+	if len(config.WhatsappWebhook) > 0 {
+		go func(e *events.PairSuccess) {
+			webhookCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+			defer cancel()
+			if err := forwardPairSuccessToWebhook(webhookCtx, e, deviceID); err != nil {
+				logrus.Errorf("Failed to forward PariSuccess event to webhook: %v", err)
+			}
+		}(evt)
+	}
 }
 
 func handleLoggedOut(ctx context.Context, evt *events.LoggedOut, instance *DeviceInstance, chatStorageRepo domainChatStorage.IChatStorageRepository, client *whatsmeow.Client) {
@@ -367,9 +379,10 @@ func handleGroupInfo(ctx context.Context, evt *events.GroupInfo, deviceID string
 	}
 }
 
-func handleTemporaryBan(ctx context.Context, evt *events.TemporaryBan, deviceID string) {
-	logrus.Warnf("[REMOTE_TEMPORARY_BAN] Received TemporaryBan event for device %s", deviceID)
+func handleTemporaryBan(ctx context.Context, evt *events.TemporaryBan, instance *DeviceInstance) {
+	logrus.Warnf("[REMOTE_TEMPORARY_BAN] Received TemporaryBan event for device %s", instance.ID())
 
+	deviceID := instance.ID()
 	if len(config.WhatsappWebhook) > 0 {
 		go func(e *events.TemporaryBan) {
 			webhookCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
