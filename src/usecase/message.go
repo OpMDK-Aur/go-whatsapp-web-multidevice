@@ -65,6 +65,40 @@ func (service serviceMessage) MarkAsRead(ctx context.Context, request domainMess
 	return response, nil
 }
 
+func (service serviceMessage) MarkAsReadBulk(ctx context.Context, request domainMessage.MarkAsReadBulkRequest) (response domainMessage.MarkAsReadBulkResponse, err error) {
+	if err = validations.ValidateMarkAsReadBulk(ctx, request); err != nil {
+		return response, err
+	}
+
+	client := whatsapp.ClientFromContext(ctx)
+	if client == nil {
+		return response, pkgError.ErrWaCLI
+	}
+
+	dataWaRecipient, err := utils.ValidateJidWithLogin(client, request.Phone)
+	if err != nil {
+		return response, err
+	}
+
+	ids := make([]types.MessageID, len(request.MessageIDs))
+	copy(ids, request.MessageIDs);
+
+	if err = client.MarkRead(ctx, ids, time.Now(), dataWaRecipient, *client.Store.ID); err != nil {
+		return response, err
+	}
+
+	logrus.Info(map[string]any{
+		"phone":       request.Phone,
+		"message_ids": request.MessageIDs,
+		"chat":        dataWaRecipient.String(),
+		"sender":      client.Store.ID.String(),
+	})
+
+	response.Status = fmt.Sprintf("Mark as read success %d messages", len(request.MessageIDs))
+	response.Count = len(request.MessageIDs)
+	return response, nil
+}
+
 func (service serviceMessage) ReactMessage(ctx context.Context, request domainMessage.ReactionRequest) (response domainMessage.GenericResponse, err error) {
 	if err = validations.ValidateReactMessage(ctx, request); err != nil {
 		return response, err
