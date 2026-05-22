@@ -1754,6 +1754,55 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorInternalServer'
+  /messages/read:
+    post:
+      operationId: readMessagesBulk
+      tags:
+        - message
+      summary: Mark multiple messages as read (max 50 per request)
+      parameters:
+        - $ref: '#/components/parameters/DeviceIdHeader'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                phone:
+                  type: string
+                  example: '62819273192397132@s.whatsapp.net'
+                  description: Phone number with country code
+                message_ids:
+                  type: array
+                  items:
+                    type: string
+                  maxItems: 50
+                  example:
+                    - '3EB0FBA1...'
+                    - '3EB0FBA2...'
+                  description: List of message IDs to mark as read (max 50)
+              required:
+                - phone
+                - message_ids
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SendResponse'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBadRequest'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorInternalServer'
   /message/{message_id}/star:
     post:
       operationId: starMessage

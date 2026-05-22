@@ -1,8 +1,10 @@
 package rest
 
 import (
+	"context"
 	"fmt"
 	"strconv"
+	"time"
 
 	domainMessage "github.com/aldinokemal/go-whatsapp-web-multidevice/domains/message"
 	"github.com/aldinokemal/go-whatsapp-web-multidevice/infrastructure/whatsapp"
@@ -28,6 +30,7 @@ func InitRestMessage(app fiber.Router, service domainMessage.IMessageUsecase) Me
 	app.Get("/message/:message_id/download", rest.DownloadMedia)
 	app.Delete("/message/:message_id/download", rest.DeleteMedia)
 	app.Get("/message/:message_id/media", rest.GetMedia)
+	app.Post("/messages/read", rest.MarkAsReadBulk)
 	return rest
 }
 
@@ -116,6 +119,24 @@ func (controller *Message) MarkAsRead(c *fiber.Ctx) error {
 	utils.SanitizePhone(&request.Phone)
 
 	response, err := controller.Service.MarkAsRead(whatsapp.ContextWithDevice(c.UserContext(), getDeviceFromCtx(c)), request)
+	utils.PanicIfNeeded(err)
+
+	return c.JSON(utils.ResponseData{
+		Status:  200,
+		Code:    "SUCCESS",
+		Message: response.Status,
+		Results: response,
+	})
+}
+
+func (controller *Message) MarkAsReadBulk(c *fiber.Ctx) error {
+	var request domainMessage.MarkAsReadBulkRequest
+	err := c.BodyParser(&request)
+	utils.PanicIfNeeded(err)
+
+	utils.SanitizePhone(&request.Phone)
+
+	response, err := controller.Service.MarkAsReadBulk(whatsapp.ContextWithDevice(c.UserContext(), getDeviceFromCtx(c)), request)
 	utils.PanicIfNeeded(err)
 
 	return c.JSON(utils.ResponseData{
@@ -216,12 +237,16 @@ func (controller *Message) GetMedia(c *fiber.Ctx) error {
 	request.Phone = c.Query("phone")
 	utils.SanitizePhone(&request.Phone)
 
-	ctx := c.UserContext()
-	if device, ok := c.Locals("device").(*whatsapp.DeviceInstance); ok {
-		ctx = whatsapp.ContextWithDevice(ctx, device)
+	device, ok := c.Locals("device").(*whatsapp.DeviceInstance)
+	if !ok {
+		return fiber.NewError(fiber.StatusBadRequest, "device context is missing")
 	}
 
-	data, err := controller.Service.GetMedia(ctx, request)
+	ctx := whatsapp.ContextWithDevice(context.Background(), device)
+	downloadCtx, cancel := context.WithTimeout(ctx, 180*time.Second)
+	defer cancel()
+
+	data, err := controller.Service.GetMedia(downloadCtx, request)
 	utils.PanicIfNeeded(err)
 
 	c.Set("Content-Type", data.MimeType)

@@ -32,6 +32,16 @@ type MarkAsReadRequest struct {
 	Phone     string `json:"phone" form:"phone"`
 }
 
+type MarkAsReadBulkRequest struct {
+	Phone      string   `json:"phone" form:"phone"`
+	MessageIDs []string `json:"message_ids" form:"message_ids"`
+}
+
+type MarkAsReadBulkResponse struct {
+	Status string `json:"status"`
+	Count  int    `json:"count"`
+}
+
 type StarRequest struct {
 	MessageID string `json:"message_id" uri:"message_id"`
 	Phone     string `json:"phone" form:"phone"`

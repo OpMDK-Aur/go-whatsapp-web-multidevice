@@ -567,6 +567,7 @@ You can fork or edit this source code !
 | ✅       | Delete Message                         | POST   | /message/:message_id/delete         |
 | ✅       | Edit Message                           | POST   | /message/:message_id/update         |
 | ✅       | Read Message (DM)                      | POST   | /message/:message_id/read           |
+| ✅       | Read Messages (Bulk)                   | POST   | /messages/read                      |
 | ✅       | Star Message                           | POST   | /message/:message_id/star           |
 | ✅       | Unstar Message                         | POST   | /message/:message_id/unstar         |
 | ✅       | Download Message Media                 | GET    | /message/:message_id/download       |

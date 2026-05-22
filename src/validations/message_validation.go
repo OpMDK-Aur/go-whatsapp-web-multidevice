@@ -22,6 +22,19 @@ func ValidateMarkAsRead(ctx context.Context, request domainMessage.MarkAsReadReq
 
 }
 
+func ValidateMarkAsReadBulk(ctx context.Context, request domainMessage.MarkAsReadBulkRequest) error {
+	err := validation.ValidateStructWithContext(ctx, &request,
+		validation.Field(&request.Phone, validation.Required),
+		validation.Field(&request.MessageIDs, validation.Required, validation.Length(1, 50)),
+	)
+
+	if err != nil {
+		return pkgError.ValidationError(err.Error())
+	}
+
+	return nil
+}
+
 func ValidateRevokeMessage(ctx context.Context, request domainMessage.RevokeRequest) error {
 	err := validation.ValidateStructWithContext(ctx, &request,
 		validation.Field(&request.Phone, validation.Required),

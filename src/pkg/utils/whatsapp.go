@@ -854,6 +854,13 @@ func ExtractExternalAdReply(msg *waE2E.Message) map[string]any {
 		referral["click_to_whatsapp_call"] = ad.GetClickToWhatsappCall()
 	}
 
+	if utm := ci.GetUtm(); utm != nil {
+		utmPayload := make(map[string]any)
+		utmPayload["source"] = utm.GetUtmSource()
+		utmPayload["campaign"] = utm.GetUtmCampaign()
+		referral["utm"] = utmPayload
+	}
+
 	if len(referral) == 0 {
 		return nil
 	}

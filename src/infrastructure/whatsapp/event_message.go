@@ -245,7 +245,6 @@ func buildOptionalFields(ctx context.Context, client *whatsmeow.Client, evt *eve
 	}
 
 	buildOtherMessageTypes(msg, payload)
-	buildConversionMessageTypes(msg, payload)
 
 	return nil
 }
@@ -464,30 +463,6 @@ func buildOtherMessageTypes(msg *waE2E.Message, payload map[string]any) {
 	if orderMessage := msg.GetOrderMessage(); orderMessage != nil {
 		payload["order"] = orderMessage
 	}
-}
-
-func buildWebhookContactPayload(contact *waE2E.ContactMessage) webhookContactPayload {
-	if contact == nil {
-		return webhookContactPayload{}
-	}
-
-	vcard := contact.GetVcard()
-	return webhookContactPayload{
-		DisplayName: contact.GetDisplayName(),
-		VCard:       vcard,
-		PhoneNumber: utils.ExtractPhoneFromVCard(vcard),
-	}
-}
-
-func buildWebhookContactsArrayPayload(contacts []*waE2E.ContactMessage) []webhookContactPayload {
-	result := make([]webhookContactPayload, 0, len(contacts))
-	for _, contact := range contacts {
-		if contact == nil {
-			continue
-		}
-		result = append(result, buildWebhookContactPayload(contact))
-	}
-	return result
 }
 
 
