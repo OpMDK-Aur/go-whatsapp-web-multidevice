@@ -65,42 +65,6 @@ func (service serviceMessage) MarkAsRead(ctx context.Context, request domainMess
 	return response, nil
 }
 
-func (service serviceMessage) MarkAsReadBulk(ctx context.Context, request domainMessage.MarkAsReadBulkRequest) (response domainMessage.MarkAsReadBulkResponse, err error) {
-	if err = validations.ValidateMarkAsReadBulk(ctx, request); err != nil {
-		return response, err
-	}
-
-	client := whatsapp.ClientFromContext(ctx)
-	if client == nil {
-		return response, pkgError.ErrWaCLI
-	}
-
-	dataWaRecipient, err := utils.ValidateJidWithLogin(client, request.Phone)
-	if err != nil {
-		return response, err
-	}
-
-	ids := make([]types.MessageID, len(request.MessageIDs))
-	for i, id := range request.MessageIDs {
-		ids[i] = id
-	}
-
-	if err = client.MarkRead(ctx, ids, time.Now(), dataWaRecipient, *client.Store.ID); err != nil {
-		return response, err
-	}
-
-	logrus.Info(map[string]any{
-		"phone":       request.Phone,
-		"message_ids": request.MessageIDs,
-		"chat":        dataWaRecipient.String(),
-		"sender":      client.Store.ID.String(),
-	})
-
-	response.Status = fmt.Sprintf("Mark as read success %d messages", len(request.MessageIDs))
-	response.Count = len(request.MessageIDs)
-	return response, nil
-}
-
 func (service serviceMessage) ReactMessage(ctx context.Context, request domainMessage.ReactionRequest) (response domainMessage.GenericResponse, err error) {
 	if err = validations.ValidateReactMessage(ctx, request); err != nil {
 		return response, err
@@ -456,6 +420,12 @@ func (service serviceMessage) GetMedia(
 		return response, fmt.Errorf("message %s does not belong to chat %s", request.MessageID, dataWaRecipient.String())
 	}
 
+	/*
+	if int64(message.FileLength) > config.WhatsappSettingMaxDownloadSize {
+		return response, fmt.Errorf("file size exceeds the maximum limit of %d bytes", config.WhatsappSettingMaxDownloadSize)
+	}
+	*/
+
 	if message.FileLength > 0 &&
 	int64(message.FileLength) > config.WhatsappSettingMaxDownloadSize {
 		return response, fmt.Errorf("file size exceeds the maximum limit of %d bytes", config.WhatsappSettingMaxDownloadSize)
@@ -522,7 +492,7 @@ func (service serviceMessage) GetMedia(
 
 	data, err := client.Download(ctx, downloadableMsg)
 	if err != nil {
-		return response, fmt.Errorf("failed to download media: %w", err)
+		return response, fmt.Errorf("failed to download media: %v", err)
 	}
 
 	if int64(len(data)) > config.WhatsappSettingMaxDownloadSize {
@@ -552,6 +522,7 @@ func (service serviceMessage) GetMedia(
 
 	return response, nil
 }
+
 
 // DeleteMedia removes a previously downloaded media file from disk.
 func (service serviceMessage) DeleteMedia(ctx context.Context, request domainMessage.DeleteMediaRequest) error {

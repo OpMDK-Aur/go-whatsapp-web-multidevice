@@ -25,7 +25,7 @@ type Message struct {
 	IsFromMe         bool       `db:"is_from_me"`
 	MediaType        string     `db:"media_type"`
 	CallMetadata     string     `db:"call_metadata"`
-	MimeType         string    `db:"mime_type"`
+	MimeType         string     `db:"mime_type"`
 	Filename         string     `db:"filename"`
 	URL              string     `db:"url"`
 	MediaKey         []byte     `db:"media_key"`
