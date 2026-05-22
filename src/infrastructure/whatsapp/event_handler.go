@@ -40,7 +40,7 @@ func handler(ctx context.Context, instance *DeviceInstance, rawEvt any) {
 	case *events.LoggedOut:
 		handleLoggedOut(ctx, evt, instance, chatStorageRepo, client)
 	case *events.TemporaryBan:
-		handleTemporaryBan(ctx, evt, instance.JID())
+		handleTemporaryBan(ctx, evt, instance)
 	case *events.Connected:
 		handleConnected(ctx, client, instance)
 	case *events.PushNameSetting:
