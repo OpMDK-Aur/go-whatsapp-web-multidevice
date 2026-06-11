@@ -787,78 +787,121 @@ func ExtractExternalAdReply(msg *waE2E.Message) map[string]any {
 	}
 
 	ad := ci.GetExternalAdReply()
-	if ad == nil {
+	conversionSource := ci.GetConversionSource()
+	utm := ci.GetUtm()
+	ctwaSignals := ci.GetCtwaSignals()
+
+	smbClient := ci.GetSmbClientCampaignID()
+	smbServer := ci.GetSmbServerCampaignID()
+
+	if ad == nil 		   &&
+	conversionSource == "" &&
+	utm == nil 			   &&
+	ctwaSignals == ""	   &&
+	smbClient == ""		   &&
+	smbServer == "" {
 		return nil
 	}
 
 	referral := make(map[string]any)
 
-	if v := ad.GetCtwaClid(); v != "" {
-		referral["ctwa_clid"] = v
-	}
-
-	if v := ad.GetSourceID(); v != "" {
-		referral["source_id"] = v
-	}
-	if v := ad.GetSourceApp(); v != "" {
-		referral["source_app"] = v
-	}
-	if v := ad.GetSourceURL(); v != "" {
-		referral["source_url"] = v
-	}
-	if v := ad.GetSourceType(); v != "" {
-		referral["source_type"] = v
-	}
-
-	if v := ad.GetRef(); v != "" {
-		referral["ref"] = v
-	}
-
-	if v := ad.GetTitle(); v != "" {
-		referral["ad_title"] = v
-	}
-	/*
-	if v := ad.GetBody(); v != "" {
-		referral["ad_body"] = v
-	}
-	*/
-	if ad.AdType != nil {
-		referral["ad_type"] = ad.GetAdType().String()
-	}
-	if v := ad.GetThumbnailURL(); v != "" {
-		referral["thumbnail_url"] = v
-	}
-	if v := ad.GetOriginalImageURL(); v != "" {
-		referral["original_image_url"] = v
-	}
-	if v := ad.GetMediaURL(); v != "" {
-		referral["media_url"] = v
-	}
-	if ad.MediaType != nil {
-		referral["media_type"] = ad.GetMediaType().String()
-	}
-
-	if ad.ShowAdAttribution != nil {
-		referral["show_ad_attribution"] = ad.GetShowAdAttribution()
-	}
-	if ad.ContainsAutoReply != nil {
-		referral["contains_auto_reply"] = ad.GetContainsAutoReply()
-	}
-	if ad.AutomatedGreetingMessageShown != nil {
-		referral["automated_greeting_message_shown"] = ad.GetAutomatedGreetingMessageShown()
-	}
-	if v := ad.GetGreetingMessageBody(); v != "" {
-		referral["greeting_message_body"] = v
-	}
-	if ad.ClickToWhatsappCall != nil {
-		referral["click_to_whatsapp_call"] = ad.GetClickToWhatsappCall()
-	}
-
-	if utm := ci.GetUtm(); utm != nil {
+	if utm != nil {
 		utmPayload := make(map[string]any)
 		utmPayload["source"] = utm.GetUtmSource()
 		utmPayload["campaign"] = utm.GetUtmCampaign()
 		referral["utm"] = utmPayload
+	}
+
+	if ctwaSignals != "" {
+		referral["ctwa_signal"] = ctwaSignals;
+	}
+
+	if smbClient != "" {
+		referral["smb_client_campaign_id"] = smbClient;
+	}
+
+	if smbServer != "" {
+		referral["smb_server_campaign_id"] = smbServer;
+	}
+
+	if conversionSource != "" {
+		referral["conversion_source"] = conversionSource
+
+		if v := ci.GetEntryPointConversionSource(); v != "" {
+			referral["entry_point_conversion_source"] = v
+		}
+		if v := ci.GetEntryPointConversionApp(); v != "" {
+			referral["entry_point_conversion_app"] = v;
+		}
+		if v := ci.GetEntryPointConversionExternalSource(); v != "" {
+			referral["entry_point_conversion_external_source"] = v;
+		}
+		if v := ci.GetEntryPointConversionExternalMedium(); v != "" {
+			referral["entry_point_conversion_external_medium"] = v;
+		}
+	}
+
+	if ad != nil {
+		if v := ad.GetCtwaClid(); v != "" {
+			referral["ctwa_clid"] = v
+		}
+
+		if v := ad.GetSourceID(); v != "" {
+			referral["source_id"] = v
+		}
+		if v := ad.GetSourceApp(); v != "" {
+			referral["source_app"] = v
+		}
+		if v := ad.GetSourceURL(); v != "" {
+			referral["source_url"] = v
+		}
+		if v := ad.GetSourceType(); v != "" {
+			referral["source_type"] = v
+		}
+
+		if v := ad.GetRef(); v != "" {
+			referral["ref"] = v
+		}
+
+		if v := ad.GetTitle(); v != "" {
+			referral["ad_title"] = v
+		}
+		/*
+		if v := ad.GetBody(); v != "" {
+			referral["ad_body"] = v
+		}
+		*/
+		if ad.AdType != nil {
+			referral["ad_type"] = ad.GetAdType().String()
+		}
+		if v := ad.GetThumbnailURL(); v != "" {
+			referral["thumbnail_url"] = v
+		}
+		if v := ad.GetOriginalImageURL(); v != "" {
+			referral["original_image_url"] = v
+		}
+		if v := ad.GetMediaURL(); v != "" {
+			referral["media_url"] = v
+		}
+		if ad.MediaType != nil {
+			referral["media_type"] = ad.GetMediaType().String()
+		}
+
+		if ad.ShowAdAttribution != nil {
+			referral["show_ad_attribution"] = ad.GetShowAdAttribution()
+		}
+		if ad.ContainsAutoReply != nil {
+			referral["contains_auto_reply"] = ad.GetContainsAutoReply()
+		}
+		if ad.AutomatedGreetingMessageShown != nil {
+			referral["automated_greeting_message_shown"] = ad.GetAutomatedGreetingMessageShown()
+		}
+		if v := ad.GetGreetingMessageBody(); v != "" {
+			referral["greeting_message_body"] = v
+		}
+		if ad.ClickToWhatsappCall != nil {
+			referral["click_to_whatsapp_call"] = ad.GetClickToWhatsappCall()
+		}
 	}
 
 	if len(referral) == 0 {
