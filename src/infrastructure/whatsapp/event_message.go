@@ -13,7 +13,6 @@ import (
 	"go.mau.fi/whatsmeow/types"
 
 	"github.com/aldinokemal/go-whatsapp-web-multidevice/config"
-	pkgError "github.com/aldinokemal/go-whatsapp-web-multidevice/pkg/error"
 	"github.com/aldinokemal/go-whatsapp-web-multidevice/pkg/utils"
 	"github.com/sirupsen/logrus"
 	"go.mau.fi/whatsmeow/types/events"
@@ -106,6 +105,21 @@ func buildEventPayload(ctx context.Context, client *whatsmeow.Client, evt *event
 	// Set from_name (pushname)
 	if pushname := evt.Info.PushName; pushname != "" {
 		payload["from_name"] = pushname
+	}
+
+	// Modern WhatsApp clients (LID-migrated accounts on recent app builds) wrap
+	// message edits in a SecretEncryptedMessage with encType=MESSAGE_EDIT instead
+	// of sending them as a plain ProtocolMessage{MESSAGE_EDIT}. Decrypt those
+	// here using whatsmeow's existing helper, then fall through to the standard
+	// MESSAGE_EDIT extraction path using the decrypted inner Message.
+	if sem := msg.GetSecretEncryptedMessage(); sem != nil &&
+		sem.GetSecretEncType() == waE2E.SecretEncryptedMessage_MESSAGE_EDIT &&
+		client != nil {
+		if decrypted, err := client.DecryptSecretEncryptedMessage(ctx, evt); err != nil {
+			logrus.Warnf("Failed to decrypt SecretEncryptedMessage(MESSAGE_EDIT) for %s: %v", evt.Info.ID, err)
+		} else if decrypted != nil {
+			msg = utils.UnwrapMessage(decrypted)
+		}
 	}
 
 	// Check for protocol messages (revoke, edit)
@@ -281,10 +295,13 @@ func buildMediaFields(ctx context.Context, client *whatsmeow.Client, msg *waE2E.
 		if config.WhatsappAutoDownloadMedia {
 			extracted, err := utils.ExtractMedia(ctx, client, config.PathMedia, audioMedia)
 			if err != nil {
+				// Media expired/unavailable: skip the attachment but keep
+				// forwarding the message so its body/caption still reaches
+				// downstream consumers, instead of dropping the whole event.
 				logrus.Errorf("Failed to download audio: %v", err)
-				return pkgError.WebhookError(fmt.Sprintf("Failed to download audio: %v", err))
+			} else {
+				payload["audio"] = extracted.MediaPath
 			}
-			payload["audio"] = extracted.MediaPath
 		} else {
 			meta := buildRichMediaPayload(
 				audioMedia.GetURL(),
@@ -304,10 +321,13 @@ func buildMediaFields(ctx context.Context, client *whatsmeow.Client, msg *waE2E.
 		if config.WhatsappAutoDownloadMedia {
 			extracted, err := utils.ExtractMedia(ctx, client, config.PathMedia, documentMedia)
 			if err != nil {
+				// Media expired/unavailable: skip the attachment but keep
+				// forwarding the message so its body/caption still reaches
+				// downstream consumers, instead of dropping the whole event.
 				logrus.Errorf("Failed to download document: %v", err)
-				return pkgError.WebhookError(fmt.Sprintf("Failed to download document: %v", err))
+			} else {
+				payload["document"] = buildAutoDownloadPayload(extracted)
 			}
-			payload["document"] = buildAutoDownloadPayload(extracted)
 		} else {
 			meta := buildRichMediaPayload(
 				documentMedia.GetURL(),
@@ -329,10 +349,13 @@ func buildMediaFields(ctx context.Context, client *whatsmeow.Client, msg *waE2E.
 		if config.WhatsappAutoDownloadMedia {
 			extracted, err := utils.ExtractMedia(ctx, client, config.PathMedia, imageMedia)
 			if err != nil {
+				// Media expired/unavailable: skip the attachment but keep
+				// forwarding the message so its body/caption still reaches
+				// downstream consumers, instead of dropping the whole event.
 				logrus.Errorf("Failed to download image: %v", err)
-				return pkgError.WebhookError(fmt.Sprintf("Failed to download image: %v", err))
+			} else {
+				payload["image"] = buildAutoDownloadPayload(extracted)
 			}
-			payload["image"] = buildAutoDownloadPayload(extracted)
 		} else {
 			meta := buildRichMediaPayload(
 				imageMedia.GetURL(),
@@ -356,10 +379,13 @@ func buildMediaFields(ctx context.Context, client *whatsmeow.Client, msg *waE2E.
 		if config.WhatsappAutoDownloadMedia {
 			extracted, err := utils.ExtractMedia(ctx, client, config.PathMedia, stickerMedia)
 			if err != nil {
+				// Media expired/unavailable: skip the attachment but keep
+				// forwarding the message so its body/caption still reaches
+				// downstream consumers, instead of dropping the whole event.
 				logrus.Errorf("Failed to download sticker: %v", err)
-				return pkgError.WebhookError(fmt.Sprintf("Failed to download sticker: %v", err))
+			} else {
+				payload["sticker"] = extracted.MediaPath
 			}
-			payload["sticker"] = extracted.MediaPath
 		} else {
 			meta := buildRichMediaPayload(
 				stickerMedia.GetURL(),
@@ -377,10 +403,13 @@ func buildMediaFields(ctx context.Context, client *whatsmeow.Client, msg *waE2E.
 		if config.WhatsappAutoDownloadMedia {
 			extracted, err := utils.ExtractMedia(ctx, client, config.PathMedia, videoMedia)
 			if err != nil {
+				// Media expired/unavailable: skip the attachment but keep
+				// forwarding the message so its body/caption still reaches
+				// downstream consumers, instead of dropping the whole event.
 				logrus.Errorf("Failed to download video: %v", err)
-				return pkgError.WebhookError(fmt.Sprintf("Failed to download video: %v", err))
+			} else {
+				payload["video"] = buildAutoDownloadPayload(extracted)
 			}
-			payload["video"] = buildAutoDownloadPayload(extracted)
 		} else {
 			meta := buildRichMediaPayload(
 				videoMedia.GetURL(),
@@ -404,10 +433,13 @@ func buildMediaFields(ctx context.Context, client *whatsmeow.Client, msg *waE2E.
 		if config.WhatsappAutoDownloadMedia {
 			extracted, err := utils.ExtractMedia(ctx, client, config.PathMedia, ptvMedia)
 			if err != nil {
+				// Media expired/unavailable: skip the attachment but keep
+				// forwarding the message so its body/caption still reaches
+				// downstream consumers, instead of dropping the whole event.
 				logrus.Errorf("Failed to download video note: %v", err)
-				return pkgError.WebhookError(fmt.Sprintf("Failed to download video note: %v", err))
+			} else {
+				payload["video_note"] = buildAutoDownloadPayload(extracted)
 			}
-			payload["video_note"] = buildAutoDownloadPayload(extracted)
 		} else {
 			meta := buildRichMediaPayload(
 				ptvMedia.GetURL(),

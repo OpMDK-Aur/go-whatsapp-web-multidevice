@@ -132,6 +132,7 @@ All webhook payloads follow a consistent top-level structure:
 {
   "event": "message",
   "device_id": "628123456789@s.whatsapp.net",
+  "session_id": "org_2",
   "payload": {
     // Event-specific fields
   }
@@ -354,8 +355,9 @@ Triggered when a message is read by the recipient (they opened the chat and saw 
 Chat presence events are triggered when a contact starts or stops typing (or recording audio) in a chat.
 These events use the `chat_presence` event type and are useful for implementing message batching strategies.
 
-**Note:** WhatsApp only sends chat presence updates when the client is marked as online. GOWA automatically marks
-itself as online upon connection, so no additional configuration is needed.
+**Note:** WhatsApp only sends chat presence updates when the client is marked as online. GOWA defaults to
+`unavailable` on connection, but the daily presence pulse periodically marks connected devices as `available`
+and then returns them to `unavailable`.
 
 ### User Typing
 
