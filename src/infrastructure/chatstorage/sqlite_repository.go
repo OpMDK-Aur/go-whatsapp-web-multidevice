@@ -108,7 +108,7 @@ func (r *SQLiteRepository) GetMessageByID(id string) (*domainChatStorage.Message
 func (r *SQLiteRepository) GetMessageByIDAndDevice(deviceID, id string) (*domainChatStorage.Message, error) {
 	query := `
 		SELECT id, chat_jid, device_id, sender, content, timestamp, is_from_me,
-			media_type, call_metadata, filename, url, media_key, file_sha256,
+			media_type, call_metadata, mime_type, filename, url, media_key, file_sha256,
 			file_enc_sha256, file_length, referral_metadata, created_at, updated_at
 		FROM messages
 		WHERE id = ? AND device_id = ?
@@ -1480,8 +1480,10 @@ func (r *SQLiteRepository) storeEditedMessage(ctx context.Context, evt *events.M
 			IsFromMe:  evt.Info.IsFromMe,
 		}
 
-		if mediaType, filename, url, mediaKey, fileSHA256, fileEncSHA256, fileLength := utils.ExtractMediaInfo(editedMessage); mediaType != "" || newContent != "" {
+		mediaType, mimeType, filename, url, mediaKey, fileSHA256, fileEncSHA256, fileLength := utils.ExtractMediaInfo(editedMessage)
+		if mediaType != "" || newContent != "" {
 			currentMessage.MediaType = mediaType
+			currentMessage.MimeType = mimeType
 			currentMessage.Filename = filename
 			currentMessage.URL = url
 			currentMessage.MediaKey = mediaKey
