@@ -1545,7 +1545,7 @@ func (r *SQLiteRepository) storeEditedMessage(ctx context.Context, evt *events.M
 func (r *SQLiteRepository) getMessageByDeviceAndChatIDAndMessageID(deviceID, chatJID, messageID string) (*domainChatStorage.Message, error) {
 	query := `
 		SELECT id, chat_jid, device_id, sender, content, timestamp, is_from_me,
-			media_type, call_metadata, filename, url, media_key, file_sha256,
+			media_type, call_metadata, mime_type, filename, url, media_key, file_sha256,
 			file_enc_sha256, file_length, referral_metadata, created_at, updated_at
 		FROM messages
 		WHERE id = ? AND chat_jid = ? AND device_id = ?
