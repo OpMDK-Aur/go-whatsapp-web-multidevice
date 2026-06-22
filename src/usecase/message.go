@@ -15,7 +15,6 @@ import (
 	"github.com/aldinokemal/go-whatsapp-web-multidevice/pkg/utils"
 	"github.com/aldinokemal/go-whatsapp-web-multidevice/validations"
 	"github.com/sirupsen/logrus"
-	"go.mau.fi/whatsmeow"
 	"go.mau.fi/whatsmeow/appstate"
 	"go.mau.fi/whatsmeow/proto/waE2E"
 	"go.mau.fi/whatsmeow/proto/waSyncAction"
@@ -320,8 +319,9 @@ func (service serviceMessage) DownloadMedia(ctx context.Context, request domainM
 		return response, fmt.Errorf("message with ID %s not found", request.MessageID)
 	}
 
+	directPath := utils.ResolveMediaDirectPath(message.DirectPath, message.URL)
 	// Check if message has media
-	if message.MediaType == "" || message.URL == "" {
+	if message.MediaType == "" || directPath == "" {
 		return response, fmt.Errorf("message %s does not contain downloadable media", request.MessageID)
 	}
 
@@ -339,57 +339,22 @@ func (service serviceMessage) DownloadMedia(ctx context.Context, request domainM
 		return response, fmt.Errorf("failed to create directory: %v", err)
 	}
 
-	// Create a downloadable message interface based on media type
-	var downloadableMsg any
-
-	switch message.MediaType {
-	case "image":
-		downloadableMsg = &waE2E.ImageMessage{
-			URL:           proto.String(message.URL),
-			MediaKey:      message.MediaKey,
-			FileSHA256:    message.FileSHA256,
-			FileEncSHA256: message.FileEncSHA256,
-			FileLength:    proto.Uint64(message.FileLength),
-		}
-	case "video":
-		downloadableMsg = &waE2E.VideoMessage{
-			URL:           proto.String(message.URL),
-			MediaKey:      message.MediaKey,
-			FileSHA256:    message.FileSHA256,
-			FileEncSHA256: message.FileEncSHA256,
-			FileLength:    proto.Uint64(message.FileLength),
-		}
-	case "audio":
-		downloadableMsg = &waE2E.AudioMessage{
-			URL:           proto.String(message.URL),
-			MediaKey:      message.MediaKey,
-			FileSHA256:    message.FileSHA256,
-			FileEncSHA256: message.FileEncSHA256,
-			FileLength:    proto.Uint64(message.FileLength),
-		}
-	case "document":
-		downloadableMsg = &waE2E.DocumentMessage{
-			URL:           proto.String(message.URL),
-			MediaKey:      message.MediaKey,
-			FileSHA256:    message.FileSHA256,
-			FileEncSHA256: message.FileEncSHA256,
-			FileLength:    proto.Uint64(message.FileLength),
-			FileName:      proto.String(message.Filename),
-		}
-	case "sticker":
-		downloadableMsg = &waE2E.StickerMessage{
-			URL:           proto.String(message.URL),
-			MediaKey:      message.MediaKey,
-			FileSHA256:    message.FileSHA256,
-			FileEncSHA256: message.FileEncSHA256,
-			FileLength:    proto.Uint64(message.FileLength),
-		}
-	default:
+	downloadableMsg, err := utils.BuildDownloadableMessage(
+		message.MediaType,
+		message.URL,
+		directPath,
+		message.Filename,
+		message.MediaKey,
+		message.FileSHA256,
+		message.FileEncSHA256,
+		message.FileLength,
+	)
+	if err != nil {
 		return response, fmt.Errorf("unsupported media type: %s", message.MediaType)
 	}
 
 	// Download the media using existing utils.ExtractMedia function
-	extractedMedia, err := utils.ExtractMedia(ctx, client, dateDir, downloadableMsg.(whatsmeow.DownloadableMessage))
+	extractedMedia, err := utils.ExtractMedia(ctx, client, dateDir, downloadableMsg)
 	if err != nil {
 		return response, fmt.Errorf("failed to download media: %v", err)
 	}
@@ -447,9 +412,12 @@ func (service serviceMessage) GetMedia(
 	if message == nil {
 		return response, fmt.Errorf("message with ID %s not found", request.MessageID)
 	}
-	if message.MediaType == "" || message.URL == "" {
+
+	directPath := utils.ResolveMediaDirectPath(message.DirectPath, message.URL)
+	if message.MediaType == "" || directPath == "" {
 		return response, fmt.Errorf("message %s does not contain downloadable media", request.MessageID)
 	}
+
 	if message.ChatJID != dataWaRecipient.String() {
 		return response, fmt.Errorf("message %s does not belong to chat %s", request.MessageID, dataWaRecipient.String())
 	}
@@ -469,58 +437,17 @@ func (service serviceMessage) GetMedia(
 		logrus.Warnf("GetMedia: message %s has FileLength=0; relying on post-download size check", request.MessageID)
 	}
 
-	var downloadableMsg whatsmeow.DownloadableMessage
-	switch message.MediaType {
-	case "image":
-		downloadableMsg = &waE2E.ImageMessage{
-			URL:           proto.String(message.URL),
-			MediaKey:      message.MediaKey,
-			FileSHA256:    message.FileSHA256,
-			FileEncSHA256: message.FileEncSHA256,
-			FileLength:    proto.Uint64(message.FileLength),
-		}
-	case "video":
-		downloadableMsg = &waE2E.VideoMessage{
-			URL:           proto.String(message.URL),
-			MediaKey:      message.MediaKey,
-			FileSHA256:    message.FileSHA256,
-			FileEncSHA256: message.FileEncSHA256,
-			FileLength:    proto.Uint64(message.FileLength),
-		}
-	case "video_note":
-		downloadableMsg = &waE2E.VideoMessage{
-			URL:           proto.String(message.URL),
-			MediaKey:      message.MediaKey,
-			FileSHA256:    message.FileSHA256,
-			FileEncSHA256: message.FileEncSHA256,
-			FileLength:    proto.Uint64(message.FileLength),
-		}
-	case "audio":
-		downloadableMsg = &waE2E.AudioMessage{
-			URL:           proto.String(message.URL),
-			MediaKey:      message.MediaKey,
-			FileSHA256:    message.FileSHA256,
-			FileEncSHA256: message.FileEncSHA256,
-			FileLength:    proto.Uint64(message.FileLength),
-		}
-	case "document":
-		downloadableMsg = &waE2E.DocumentMessage{
-			URL:           proto.String(message.URL),
-			MediaKey:      message.MediaKey,
-			FileSHA256:    message.FileSHA256,
-			FileEncSHA256: message.FileEncSHA256,
-			FileLength:    proto.Uint64(message.FileLength),
-			FileName:      proto.String(message.Filename),
-		}
-	case "sticker":
-		downloadableMsg = &waE2E.StickerMessage{
-			URL:           proto.String(message.URL),
-			MediaKey:      message.MediaKey,
-			FileSHA256:    message.FileSHA256,
-			FileEncSHA256: message.FileEncSHA256,
-			FileLength:    proto.Uint64(message.FileLength),
-		}
-	default:
+	downloadableMsg, err := utils.BuildDownloadableMessage(
+		message.MediaType,
+		message.URL,
+		directPath,
+		message.Filename,
+		message.MediaKey,
+		message.FileSHA256,
+		message.FileEncSHA256,
+		message.FileLength,
+	)
+	if err != nil {
 		return response, fmt.Errorf("unsupported media type: %s", message.MediaType)
 	}
 
@@ -543,7 +470,6 @@ func (service serviceMessage) GetMedia(
 	response.Filename = filename
 	response.MediaType = message.MediaType
 	response.FileSize = int64(len(data))
-
 
 	logrus.Info(map[string]any{
 		"message_id": request.MessageID,
