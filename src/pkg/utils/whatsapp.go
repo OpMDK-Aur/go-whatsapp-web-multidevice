@@ -909,18 +909,18 @@ func ExtractExternalAdReply(msg *waE2E.Message) map[string]any {
 	}
 
 	ad := ci.GetExternalAdReply()
-	conversionSource := ci.GetConversionSource()
+	entryPointConversionSource := ci.GetEntryPointConversionSource();
 	utm := ci.GetUtm()
 	ctwaSignals := ci.GetCtwaSignals()
 
 	smbClient := ci.GetSmbClientCampaignID()
 	smbServer := ci.GetSmbServerCampaignID()
 
-	if ad == nil 		   &&
-	conversionSource == "" &&
-	utm == nil 			   &&
-	ctwaSignals == ""	   &&
-	smbClient == ""		   &&
+	if ad == nil                     &&
+	entryPointConversionSource == "" &&
+	utm == nil                       &&
+	ctwaSignals == ""                &&
+	smbClient == ""                  &&
 	smbServer == "" {
 		return nil
 	}
@@ -946,11 +946,11 @@ func ExtractExternalAdReply(msg *waE2E.Message) map[string]any {
 		referral["smb_server_campaign_id"] = smbServer;
 	}
 
-	if conversionSource != "" {
-		referral["conversion_source"] = conversionSource
+	if entryPointConversionSource != "" {
+		referral["entry_point_conversion_source"] = entryPointConversionSource;
 
-		if v := ci.GetEntryPointConversionSource(); v != "" {
-			referral["entry_point_conversion_source"] = v
+		if v := ci.GetConversionSource(); v != "" {
+			referral["conversion_source"] = v;
 		}
 		if v := ci.GetEntryPointConversionApp(); v != "" {
 			referral["entry_point_conversion_app"] = v;
