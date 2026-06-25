@@ -1217,16 +1217,18 @@ func (service serviceSend) SendAudio(ctx context.Context, request domainSend.Aud
 
 			cmdConvert := exec.CommandContext(convCtx, "ffmpeg",
 				"-i", inputPath,
+				"-vn",
+				"-map_metadata -1",
 				"-c:a", "libopus",
+				"-application", "voip",
 				"-b:a", "64k",
 				"-vbr", "on",
-				"-application", "voip",
 				"-ar", "48000",
 				"-ac", "1",
+				"-f", "opus",
 				"-y", // Overwrite output if exists
 				outputPath,
 			)
-
 			var stderr bytes.Buffer
 			cmdConvert.Stderr = &stderr
 
