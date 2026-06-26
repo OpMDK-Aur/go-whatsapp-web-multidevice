@@ -1225,7 +1225,6 @@ func (service serviceSend) SendAudio(ctx context.Context, request domainSend.Aud
 				"-vbr", "on",
 				"-ar", "48000",
 				"-ac", "1",
-				"-f", "opus",
 				"-y", // Overwrite output if exists
 				outputPath,
 			)
