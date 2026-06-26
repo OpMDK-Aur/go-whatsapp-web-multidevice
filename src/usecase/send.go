@@ -1218,7 +1218,7 @@ func (service serviceSend) SendAudio(ctx context.Context, request domainSend.Aud
 			cmdConvert := exec.CommandContext(convCtx, "ffmpeg",
 				"-i", inputPath,
 				"-vn",
-				"-map_metadata -1",
+				"-map_metadata", "-1",
 				"-c:a", "libopus",
 				"-application", "voip",
 				"-b:a", "64k",
@@ -1228,6 +1228,7 @@ func (service serviceSend) SendAudio(ctx context.Context, request domainSend.Aud
 				"-y", // Overwrite output if exists
 				outputPath,
 			)
+
 			var stderr bytes.Buffer
 			cmdConvert.Stderr = &stderr
 
@@ -1242,8 +1243,18 @@ func (service serviceSend) SendAudio(ctx context.Context, request domainSend.Aud
 				return response, pkgError.InternalServerError(fmt.Sprintf("failed to read converted audio: %v", err))
 			}
 
+            // Validate the output is a non-empty Ogg Opus file
+            if len(audioBytes) == 0 {
+               return response, pkgError.InternalServerError("converted audio file is empty")
+            }
+            if !bytes.HasPrefix(audioBytes, []byte("OggS")) {
+               return response, pkgError.InternalServerError("converted audio is not a valid Ogg file")
+            }
+
 			// Update MIME type to OGG Opus
 			audioMimeType = "audio/ogg; codecs=opus"
+
+			audioDuration = getAudioDuration(tempAudioPath)
 
 			logrus.Infof("Converted audio to OGG Opus for PTT: %d bytes", len(audioBytes))
 		} else {
