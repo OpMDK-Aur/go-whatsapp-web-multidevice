@@ -26,7 +26,7 @@ import (
 	"github.com/aldinokemal/go-whatsapp-web-multidevice/ui/rest/helpers"
 	"github.com/aldinokemal/go-whatsapp-web-multidevice/validations"
 	"github.com/disintegration/imaging"
-	fiberUtils "github.com/gofiber/fiber/v2/utils"
+	fiberUtils "github.com/gofiber/utils/v2"
 	"github.com/sirupsen/logrus"
 	"github.com/valyala/fasthttp"
 	"go.mau.fi/whatsmeow"
@@ -68,15 +68,18 @@ func (service serviceSend) wrapSendMessage(ctx context.Context, client *whatsmeo
 
 	// Store message asynchronously with timeout.
 	// Preserve device context (for device_id scoping) but detach from request cancellation.
+	// The budget must survive chat-storage write contention (history sync batches
+	// hold the SQLite writer for a while; busy_timeout is 30s) — with a short
+	// deadline the sent message is silently missing from the chat viewer.
 	go func() {
-		storeCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 2*time.Second)
+		storeCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 15*time.Second)
 		defer cancel()
 
 		if err := service.chatStorageRepo.StoreSentMessageWithContext(storeCtx, ts.ID, senderJID, recipient.String(), content, ts.Timestamp, msg); err != nil {
 			if errors.Is(err, context.DeadlineExceeded) {
-				logrus.Warn("Timeout storing sent message")
+				logrus.Warnf("Timeout storing sent message %s to %s", ts.ID, recipient.String())
 			} else {
-				logrus.Warnf("Failed to store sent message: %v", err)
+				logrus.Warnf("Failed to store sent message %s to %s: %v", ts.ID, recipient.String(), err)
 			}
 		}
 	}()
@@ -983,9 +986,11 @@ func (service serviceSend) SendLink(ctx context.Context, request domainSend.Link
 		logrus.Debugf("Image dimensions: Square image or dimensions not available")
 	}
 
+	messageText := buildLinkMessageText(request.Caption, request.Link)
+
 	// Create the message
 	msg := &waE2E.Message{ExtendedTextMessage: &waE2E.ExtendedTextMessage{
-		Text:          proto.String(fmt.Sprintf("%s\n%s", request.Caption, request.Link)),
+		Text:          proto.String(messageText),
 		Title:         proto.String(metadata.Title),
 		MatchedText:   proto.String(request.Link),
 		Description:   proto.String(metadata.Description),
@@ -1027,11 +1032,7 @@ func (service serviceSend) SendLink(ctx context.Context, request domainSend.Link
 		}
 	}
 
-	content := "🔗 " + request.Link
-	if request.Caption != "" {
-		content = "🔗 " + request.Caption
-	}
-	ts, err := service.wrapSendMessage(ctx, client, dataWaRecipient, msg, content)
+	ts, err := service.wrapSendMessage(ctx, client, dataWaRecipient, msg, messageText)
 	if err != nil {
 		return response, err
 	}
@@ -1039,6 +1040,17 @@ func (service serviceSend) SendLink(ctx context.Context, request domainSend.Link
 	response.MessageID = ts.ID
 	response.Status = fmt.Sprintf("Link sent to %s (server timestamp: %s)", request.BaseRequest.Phone, ts.Timestamp.String())
 	return response, nil
+}
+
+func buildLinkMessageText(caption, link string) string {
+	caption = strings.TrimSpace(caption)
+	link = strings.TrimSpace(link)
+
+	if caption == "" {
+		return link
+	}
+
+	return fmt.Sprintf("%s\n%s", caption, link)
 }
 
 func (service serviceSend) SendLocation(ctx context.Context, request domainSend.LocationRequest) (response domainSend.GenericResponse, err error) {
