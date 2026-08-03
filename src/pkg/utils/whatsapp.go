@@ -1236,12 +1236,16 @@ func ExtractExternalAdReply(msg *waE2E.Message) map[string]any {
 		referral["smb_server_campaign_id"] = smbServer;
 	}
 
+	if v := ci.GetConversionSource(); v != "" {
+		referral["conversion_source"] = v;
+	}
+
+	if v := ci.GetConversionData(); v != nil {
+		referral["conversion_data"] = string(v);
+	}
+
 	if entryPointConversionSource != "" {
 		referral["entry_point_conversion_source"] = entryPointConversionSource;
-
-		if v := ci.GetConversionSource(); v != "" {
-			referral["conversion_source"] = v;
-		}
 		if v := ci.GetEntryPointConversionApp(); v != "" {
 			referral["entry_point_conversion_app"] = v;
 		}
@@ -1313,6 +1317,9 @@ func ExtractExternalAdReply(msg *waE2E.Message) map[string]any {
 		}
 		if ad.ClickToWhatsappCall != nil {
 			referral["click_to_whatsapp_call"] = ad.GetClickToWhatsappCall()
+		}
+		if v := ad.GetWtwaWebsiteURL(); v != "" {
+			referral["wtwa_website_url"] = v;
 		}
 	}
 
