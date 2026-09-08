@@ -1127,6 +1127,7 @@ type EvtMessage struct {
 	ID            string `json:"id"`
 	RepliedId     string `json:"replied_id"`
 	QuotedMessage string `json:"quoted_message"`
+	Participant   string `json:"participant"`
 }
 
 // GetMessageDigestOrSignature generates HMAC signature for message
@@ -1171,7 +1172,7 @@ func UnwrapMessage(msg *waE2E.Message) *waE2E.Message {
 }
 
 // BuildEventMessage builds event message structure
-func BuildEventMessage(evt *events.Message) (message EvtMessage) {
+func BuildEventMessage(client *whatsmeow.Client, evt *events.Message) (message EvtMessage) {
 	msg := UnwrapMessage(evt.Message)
 
 	message.Text = msg.GetConversation()
@@ -1187,6 +1188,7 @@ func BuildEventMessage(evt *events.Message) (message EvtMessage) {
 			if ci := ExtractContextInfo(editedMessage); ci != nil {
 				message.RepliedId = ci.GetStanzaID()
 				message.QuotedMessage = ExtractMessageTextFromProto(ci.GetQuotedMessage())
+				message.Participant = ci.GetParticipant()
 			}
 			return message
 		}
@@ -1195,6 +1197,7 @@ func BuildEventMessage(evt *events.Message) (message EvtMessage) {
 	if ci := ExtractContextInfo(msg); ci != nil {
 		message.RepliedId = ci.GetStanzaID()
 		message.QuotedMessage = ExtractMessageTextFromProto(ci.GetQuotedMessage())
+		message.Participant = ci.GetParticipant()
 	}
 
 	return message
@@ -1213,6 +1216,53 @@ func BuildForwarded(evt *events.Message) bool {
 		}
 	}
 	return false
+}
+
+func ExtractURLTrackingMap(msg *waE2E.Message) []map[string]any {
+	if msg == nil {
+		return nil
+	}
+
+	unwrapped := UnwrapMessage(msg)
+	contextInfo := ExtractContextInfo(unwrapped)
+
+	var trackingMap *waE2E.UrlTrackingMap
+
+	if contextInfo != nil {
+		trackingMap = contextInfo.GetUrlTrackingMap()
+	}
+
+	if trackingMap == nil {
+		interactiveMessage := unwrapped.GetInteractiveMessage()
+		if interactiveMessage != nil {
+			trackingMap = interactiveMessage.GetUrlTrackingMap()
+		}
+	}
+
+	if trackingMap == nil {
+		return nil
+	}
+
+	result := make([]map[string]any, 0)
+
+	for _, element := range trackingMap.GetUrlTrackingMapElements() {
+		if element == nil {
+			continue
+		}
+
+		result = append(result, map[string]any{
+			"original_url":          element.GetOriginalURL(),
+			"unconsented_users_url": element.GetUnconsentedUsersURL(),
+			"consented_users_url":   element.GetConsentedUsersURL(),
+			"card_index":            element.GetCardIndex(),
+		})
+	}
+
+	if len(result) == 0 {
+		return nil
+	}
+
+	return result
 }
 
 // ExtractExternalAdReply extracts Meta Ads referral/attribution metadata from
@@ -1247,42 +1297,40 @@ func ExtractExternalAdReply(msg *waE2E.Message) map[string]any {
 	referral := make(map[string]any)
 
 	if utm != nil {
-		utmPayload := make(map[string]any)
-		utmPayload["source"] = utm.GetUtmSource()
-		utmPayload["campaign"] = utm.GetUtmCampaign()
-		referral["utm"] = utmPayload
+		referral["utm_source"] = utm.GetUtmSource()
+		referral["utm_campaign"] = utm.GetUtmCampaign()
 	}
 
 	if ctwaSignals != "" {
-		referral["ctwa_signal"] = ctwaSignals;
+		referral["ctwa_signal"] = ctwaSignals
 	}
 
 	if smbClient != "" {
-		referral["smb_client_campaign_id"] = smbClient;
+		referral["smb_client_campaign_id"] = smbClient
 	}
 
 	if smbServer != "" {
-		referral["smb_server_campaign_id"] = smbServer;
+		referral["smb_server_campaign_id"] = smbServer
 	}
 
 	if v := ci.GetConversionSource(); v != "" {
-		referral["conversion_source"] = v;
+		referral["conversion_source"] = v
 	}
 
 	if v := ci.GetConversionData(); v != nil {
-		referral["conversion_data"] = string(v);
+		referral["conversion_data"] = string(v)
 	}
 
 	if entryPointConversionSource != "" {
 		referral["entry_point_conversion_source"] = entryPointConversionSource;
 		if v := ci.GetEntryPointConversionApp(); v != "" {
-			referral["entry_point_conversion_app"] = v;
+			referral["entry_point_conversion_app"] = v
 		}
 		if v := ci.GetEntryPointConversionExternalSource(); v != "" {
-			referral["entry_point_conversion_external_source"] = v;
+			referral["entry_point_conversion_external_source"] = v
 		}
 		if v := ci.GetEntryPointConversionExternalMedium(); v != "" {
-			referral["entry_point_conversion_external_medium"] = v;
+			referral["entry_point_conversion_external_medium"] = v
 		}
 	}
 
