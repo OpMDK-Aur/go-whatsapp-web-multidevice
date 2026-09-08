@@ -326,7 +326,10 @@ func buildMessageBody(ctx context.Context, client *whatsmeow.Client, evt *events
 	}
 
 	if message.Participant != "" {
-		payload["participant"] = message.Participant
+		jid, err := types.ParseJID(message.Participant)
+		if err == nil {
+			payload["participant"] = NormalizeJIDFromLID(ctx, jid, client)
+		}
 	}
 
 	return nil
