@@ -325,13 +325,6 @@ func buildMessageBody(ctx context.Context, client *whatsmeow.Client, evt *events
 		payload["quoted_body"] = message.QuotedMessage
 	}
 
-	if message.Participant != "" {
-		jid, err := types.ParseJID(message.Participant)
-		if err == nil {
-			payload["participant"] = NormalizeJIDFromLID(ctx, jid, client)
-		}
-	}
-
 	return nil
 }
 

@@ -1127,7 +1127,6 @@ type EvtMessage struct {
 	ID            string `json:"id"`
 	RepliedId     string `json:"replied_id"`
 	QuotedMessage string `json:"quoted_message"`
-	Participant   string `json:"participant"`
 }
 
 // GetMessageDigestOrSignature generates HMAC signature for message
@@ -1188,7 +1187,6 @@ func BuildEventMessage(client *whatsmeow.Client, evt *events.Message) (message E
 			if ci := ExtractContextInfo(editedMessage); ci != nil {
 				message.RepliedId = ci.GetStanzaID()
 				message.QuotedMessage = ExtractMessageTextFromProto(ci.GetQuotedMessage())
-				message.Participant = ci.GetParticipant()
 			}
 			return message
 		}
@@ -1197,7 +1195,6 @@ func BuildEventMessage(client *whatsmeow.Client, evt *events.Message) (message E
 	if ci := ExtractContextInfo(msg); ci != nil {
 		message.RepliedId = ci.GetStanzaID()
 		message.QuotedMessage = ExtractMessageTextFromProto(ci.GetQuotedMessage())
-		message.Participant = ci.GetParticipant()
 	}
 
 	return message
