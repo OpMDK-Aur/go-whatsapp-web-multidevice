@@ -365,8 +365,10 @@ func TestBuildEventPayloadQuotedBodyUsesQuotedCaption(t *testing.T) {
 			eventType, payload, err := buildEventPayload(context.Background(), nil, evt)
 			assert.NoError(t, err)
 			assert.Equal(t, EventTypeMessage, eventType)
-			assert.Contains(t, payload, "quoted_body")
-			assert.Equal(t, tt.wantQuotedBody, payload["quoted_body"])
+			assert.Contains(t, payload, "replied_to")
+			repliedTo, ok := payload["replied_to"].(map[string]any)
+			assert.True(t, ok)
+			assert.Equal(t, tt.wantQuotedBody, repliedTo["body"])
 		})
 	}
 }
