@@ -253,7 +253,6 @@ func handleLoggedOut(evt *events.LoggedOut, instance *DeviceInstance) {
 	// here would contradict the keep-slot semantics and lose the conversation history.
 
 	deviceID := instance.JID()
-	instanceID := instance.ID()
 
 	// TriggerLoggedOut fires the manager's keep-slot callback (resets the in-memory
 	// client + clears the persisted JID, but keeps the slot id and display name).
@@ -269,7 +268,7 @@ func handleLoggedOut(evt *events.LoggedOut, instance *DeviceInstance) {
 		go func(e *events.LoggedOut) {
 			webhookCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 			defer cancel()
-			if err := forwardLoggedOutToWebhook(webhookCtx, e, deviceID, instanceID); err != nil {
+			if err := forwardLoggedOutToWebhook(webhookCtx, e, deviceID); err != nil {
 				logrus.Errorf("Failed to forward PariSuccess event to webhook: %v", err)
 			}
 		}(evt)
@@ -316,19 +315,17 @@ func handleConnected(_ context.Context, client *whatsmeow.Client, instance *Devi
 			}
 		}
 
-		instanceID := ""
 		deviceID := ""
+
 		if jid := instance.JID(); jid != "" {
 			deviceID = jid
 		}
-		if id := instance.ID(); id != "" {
-			instanceID = id
-		}
+
 		if len(config.WhatsappWebhook) > 0 {
 			go func() {
 				webhookCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 				defer cancel()
-				if err := forwardConnectedToWebhook(webhookCtx, deviceID, instanceID); err != nil {
+				if err := forwardConnectedToWebhook(webhookCtx, deviceID); err != nil {
 					logrus.Errorf("Failed to forward Connected event to webhook: %v", err)
 				}
 			}()
