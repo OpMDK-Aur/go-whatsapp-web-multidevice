@@ -120,7 +120,8 @@ func ExtractQuotedText(msg *waE2E.Message) string {
 	if cap := ExtractMediaCaption(msg); cap != "" {
 		return cap
 	}
-	return extractBusinessMessageText(msg)
+	t :=  extractBusinessMessageText(msg)
+	return t
 }
 
 func ReplyContextInfo(msg *waE2E.Message) *waE2E.ContextInfo {

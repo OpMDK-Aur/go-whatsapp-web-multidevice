@@ -2,12 +2,16 @@ package whatsapp
 
 import (
 	"context"
+	"strings"
+	"unicode"
 
 	"github.com/aldinokemal/go-whatsapp-web-multidevice/pkg/utils"
 	"go.mau.fi/whatsmeow"
 	"go.mau.fi/whatsmeow/types"
 	"go.mau.fi/whatsmeow/types/events"
 )
+
+const MAX_REPLIED_BODY_CHARS = 697
 
 func isOwnJID(client *whatsmeow.Client, jid types.JID) bool {
 	if client == nil || client.Store == nil {
@@ -18,6 +22,20 @@ func isOwnJID(client *whatsmeow.Client, jid types.JID) bool {
 		return true
 	}
 	return !client.Store.LID.IsEmpty() && jid == client.Store.LID.ToNonAD()
+}
+
+func truncateRepliedBody(body string) string {
+	if len(body) > MAX_REPLIED_BODY_CHARS {
+		count := 0
+		for i := range body {
+			if count == MAX_REPLIED_BODY_CHARS {
+				body = strings.TrimRightFunc(body[:i], unicode.IsSpace) + "..."
+				break
+			}
+			count += 1
+		}
+	}
+	return body
 }
 
 func buildRepliedTo(ctx context.Context, client *whatsmeow.Client, evt *events.Message) map[string]any {
@@ -65,7 +83,7 @@ func buildRepliedTo(ctx context.Context, client *whatsmeow.Client, evt *events.M
 	}
 
 	if body := utils.ExtractQuotedText(quoted); body != "" {
-		replied["body"] = body
+		replied["body"] = truncateRepliedBody(body)
 	}
 	utils.PopulateQuotedSummary(quoted, replied)
 
