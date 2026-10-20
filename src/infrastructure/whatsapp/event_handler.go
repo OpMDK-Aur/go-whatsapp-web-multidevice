@@ -253,6 +253,7 @@ func handleLoggedOut(evt *events.LoggedOut, instance *DeviceInstance) {
 	// here would contradict the keep-slot semantics and lose the conversation history.
 
 	deviceID := instance.JID()
+	instanceID := instance.ID()
 
 	// TriggerLoggedOut fires the manager's keep-slot callback (resets the in-memory
 	// client + clears the persisted JID, but keeps the slot id and display name).
@@ -268,7 +269,7 @@ func handleLoggedOut(evt *events.LoggedOut, instance *DeviceInstance) {
 		go func(e *events.LoggedOut) {
 			webhookCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 			defer cancel()
-			if err := forwardLoggedOutToWebhook(webhookCtx, e, deviceID); err != nil {
+			if err := forwardLoggedOutToWebhook(webhookCtx, e, deviceID, instanceID); err != nil {
 				logrus.Errorf("Failed to forward PariSuccess event to webhook: %v", err)
 			}
 		}(evt)

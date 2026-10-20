@@ -10,6 +10,7 @@ func createLoggedOutPayload(
 	ctx context.Context,
 	evt *events.LoggedOut,
 	deviceID string,
+	instanceID string,
 ) map[string]any {
 	body := make(map[string]any)
 	payload := make(map[string]any)
@@ -23,6 +24,9 @@ func createLoggedOutPayload(
 	if deviceID != "" {
 		body["device_id"] = deviceID
 	}
+	if instanceID != "" {
+		body["session_id"] = instanceID
+	}
 	body["timestamp"] = time.Now().Format(time.RFC3339)
 	body["payload"] = payload
 
@@ -33,7 +37,8 @@ func forwardLoggedOutToWebhook(
 	ctx context.Context,
 	evt *events.LoggedOut,
 	deviceID string,
+	instanceID string,
 ) error {
-	payload := createLoggedOutPayload(ctx, evt, deviceID)
+	payload := createLoggedOutPayload(ctx, evt, deviceID, instanceID)
 	return forwardPayloadToConfiguredWebhooks(ctx, payload, "loggedout")
 }
