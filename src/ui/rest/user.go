@@ -22,7 +22,13 @@ func InitRestUser(app fiber.Router, service domainUser.IUserUsecase) User {
 	app.Get("/user/my/newsletters", rest.UserMyListNewsletter)
 	app.Get("/user/my/contacts", rest.UserMyListContacts)
 	app.Get("/user/my/contact", rest.UserMyContact)
+
+	if detailed, ok := service.(domainUser.IUserContactsDetailed); ok {
+		app.Get("/user/my/contacts/detailed", userMyListContactsDetailed(detailed))
+	}
+
 	app.Get("/user/check", rest.UserCheck)
+	app.Post("/user/presence/subscribe", rest.UserSubscribePresence)
 	app.Get("/user/business-profile", rest.UserBusinessProfile)
 
 	return rest
@@ -101,6 +107,26 @@ func (controller *User) UserMyPrivacySetting(c fiber.Ctx) error {
 	})
 }
 
+func (controller *User) UserSubscribePresence(c fiber.Ctx) error {
+	var request domainUser.SubscribePresenceRequest
+	err := c.Bind().Body(&request)
+	utils.PanicIfNeeded(err)
+
+	utils.SanitizePhone(&request.Phone)
+
+	ctx := whatsapp.ContextWithDevice(c.Context(), getDeviceFromCtx(c))
+
+	response, err := controller.Service.SubscribePresence(ctx, request)
+	utils.PanicIfNeeded(err)
+
+	return c.JSON(utils.ResponseData{
+		Status:  200,
+		Code:    "SUCCESS",
+		Message: "Success subscribe to user presence",
+		Results: response,
+	})
+}
+
 func (controller *User) UserMyListGroups(c fiber.Ctx) error {
 	deviceVal := c.Locals("device")
 	ctx := c.Context()
@@ -161,6 +187,21 @@ func (controller *User) UserMyContact(c fiber.Ctx) error {
 		Message: "Success get contact",
 		Results: response,
 	})
+}
+
+func userMyListContactsDetailed(service domainUser.IUserContactsDetailed) fiber.Handler {
+	return func(c fiber.Ctx) error {
+		ctx := whatsapp.ContextWithDevice(c.Context(), getDeviceFromCtx(c))
+		response, err := service.MyListContactsDetailed(ctx)
+		utils.PanicIfNeeded(err)
+
+		return c.JSON(utils.ResponseData{
+			Status:  200,
+			Code:    "SUCCESS",
+			Message: "Success get detailed contacts",
+			Results: response,
+		})
+	}
 }
 
 func (controller *User) UserChangePushName(c fiber.Ctx) error {

@@ -3,7 +3,6 @@ package whatsapp
 import (
 	"context"
 	"fmt"
-	"os"
 	"strings"
 	"time"
 
@@ -37,7 +36,7 @@ func handler(ctx context.Context, instance *DeviceInstance, rawEvt any) {
 	case *events.AppStateSyncComplete:
 		handleAppStateSyncComplete(ctx, evt, client)
 	case *events.LoggedOut:
-		handleLoggedOut(evt, instance)
+		handleLoggedOut(ctx, instance, evt)
 	case *events.PairSuccess:
 		instance.ClearPasskeyState()
 		handlePairSuccess(ctx, evt, instance)
@@ -48,23 +47,31 @@ func handler(ctx context.Context, instance *DeviceInstance, rawEvt any) {
 	case *events.PairPasskeyError:
 		handlePairPasskeyError(instance, evt)
 	case *events.TemporaryBan:
-		handleTemporaryBan(evt, instance)
+		handleTemporaryBan(ctx, instance, evt)
 	case *events.PushNameSetting:
-		handlePushNameEvents(ctx, client, instance)
+		handleConnectionEvents(ctx, client, instance)
 	case *events.Connected:
-		handleConnected(ctx, client, instance)
+		handleConnectionEvents(ctx, client, instance)
+		if client != nil {
+			forwardDeviceEvent(ctx, "connected", instance, nil)
+		}
+		newsletterLiveUpdates.renewDevice(instance.ID())
+	case *events.NotifyAccountReachoutTimelock:
+		handleReachoutTimelock(ctx, instance, evt)
 	case *events.StreamReplaced:
-		handleStreamReplaced(ctx)
+		handleStreamReplaced(instance)
 	case *events.Message:
 		handleMessage(ctx, evt, chatStorageRepo, client)
 	case *events.UndecryptableMessage:
 		handleUndecryptableMessage(evt)
+	case *events.MediaRetry:
+		handleMediaRetry(ctx, client, evt)
 	case *events.Receipt:
 		handleReceipt(ctx, evt, instance.JID(), client)
 	case *events.Archive:
 		handleArchive(ctx, evt, chatStorageRepo, client)
 	case *events.Presence:
-		handlePresence(ctx, evt)
+		handlePresence(ctx, evt, instance.JID(), client)
 	case *events.ChatPresence:
 		handleChatPresence(ctx, evt, instance.JID(), client)
 	case *events.HistorySync:
@@ -107,23 +114,12 @@ func handleUndecryptableMessage(evt *events.UndecryptableMessage) {
 func handleDeleteForMe(ctx context.Context, evt *events.DeleteForMe, chatStorageRepo domainChatStorage.IChatStorageRepository, deviceID string, client *whatsmeow.Client) {
 	log.Infof("Deleted message %s for %s", evt.MessageID, evt.SenderJID.String())
 
-	// Find the message to get its chat JID
-	message, err := chatStorageRepo.GetMessageByID(evt.MessageID)
-	if err != nil {
-		log.Errorf("Failed to find message %s for deletion: %v", evt.MessageID, err)
-		return
+	if deviceID == "" && client != nil && client.Store != nil && client.Store.ID != nil {
+		deviceID = client.Store.ID.ToNonAD().String()
 	}
-
+	message := deleteStoredMessageForMe(chatStorageRepo, deviceID, evt.MessageID)
 	if message == nil {
-		log.Warnf("Message %s not found in database, skipping deletion", evt.MessageID)
 		return
-	}
-
-	// Delete the message from database
-	if err := chatStorageRepo.DeleteMessage(evt.MessageID, message.ChatJID); err != nil {
-		log.Errorf("Failed to delete message %s from database: %v", evt.MessageID, err)
-	} else {
-		log.Infof("Successfully deleted message %s from database", evt.MessageID)
 	}
 
 	// Send webhook notification for delete event
@@ -134,6 +130,38 @@ func handleDeleteForMe(ctx context.Context, evt *events.DeleteForMe, chatStorage
 			log.Errorf("Failed to forward delete event to webhook: %v", err)
 		}
 	}(client)
+}
+
+// deleteStoredMessageForMe removes one device's stored copy of a message after
+// that device's account deleted it "for me", and returns the removed row (nil
+// when the device holds none). Each device keeps its own copy, and a delete on
+// one account says nothing about another account's copy, so both the lookup
+// and the delete are scoped to the device that received the event.
+func deleteStoredMessageForMe(chatStorageRepo domainChatStorage.IChatStorageRepository, deviceID, messageID string) *domainChatStorage.Message {
+	if deviceID == "" {
+		log.Warnf("Cannot delete message %s without a device ID", messageID)
+		return nil
+	}
+
+	// Find the message to get its chat JID
+	message, err := chatStorageRepo.GetMessageByIDAndDevice(deviceID, messageID)
+	if err != nil {
+		log.Errorf("Failed to find message %s for deletion: %v", messageID, err)
+		return nil
+	}
+
+	if message == nil {
+		log.Warnf("Message %s not found in database, skipping deletion", messageID)
+		return nil
+	}
+
+	// Delete the message from database
+	if err := chatStorageRepo.DeleteMessageByDevice(deviceID, messageID, message.ChatJID); err != nil {
+		log.Errorf("Failed to delete message %s from database: %v", messageID, err)
+	} else {
+		log.Infof("Successfully deleted message %s from database", messageID)
+	}
+	return message
 }
 
 func resolvePresenceOnConnect() (types.Presence, bool) {
@@ -178,22 +206,6 @@ func handlePairSuccess(ctx context.Context, evt *events.PairSuccess, instance *D
 	primaryDB, secondaryDB := getStoreContainers()
 	//syncKeysDevice(ctx, primaryDB, secondaryDB)
 	syncKeysDevice(ctx, primaryDB, secondaryDB, evt.ID)
-
-	deviceID := evt.ID.ToNonAD().String()
-	deviceName := ""
-	if instance != nil {
-		deviceName = instance.DisplayName()
-	}
-
-	if len(config.WhatsappWebhook) > 0 {
-		go func(e *events.PairSuccess) {
-			webhookCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-			defer cancel()
-			if err := forwardPairSuccessToWebhook(webhookCtx, e, deviceID, deviceName); err != nil {
-				logrus.Errorf("Failed to forward PariSuccess event to webhook: %v", err)
-			}
-		}(evt)
-	}
 }
 
 func handlePairPasskeyRequest(instance *DeviceInstance, evt *events.PairPasskeyRequest) {
@@ -238,9 +250,10 @@ func handlePairPasskeyError(instance *DeviceInstance, evt *events.PairPasskeyErr
 	}
 }
 
-func handleLoggedOut(evt *events.LoggedOut, instance *DeviceInstance) {
-	logrus.Warnf("[REMOTE_LOGOUT] Received LoggedOut event for device %s - user logged out from phone", instance.ID())
+func handleLoggedOut(ctx context.Context, instance *DeviceInstance, evt *events.LoggedOut) {
+	logrus.Warnf("[REMOTE_LOGOUT] Received LoggedOut event for device %s (reason %s)", instance.ID(), evt.Reason)
 	instance.ClearPasskeyState()
+
 
 	if client := instance.GetClient(); client != nil {
 		client.Disconnect()
@@ -248,12 +261,14 @@ func handleLoggedOut(evt *events.LoggedOut, instance *DeviceInstance) {
 
 	instance.SetState(domainDevice.DeviceStateDisconnected)
 
+	deviceID := instance.ID()
+
 	// Chat history is intentionally preserved on remote logout (it is only cleared on
 	// a full purge via DELETE). A remote logout keeps the device slot, so truncating
 	// here would contradict the keep-slot semantics and lose the conversation history.
 
-	deviceID := instance.JID()
-	instanceID := instance.ID()
+	// Before TriggerLoggedOut: the webhook is addressed by the JID it clears.
+	forwardDeviceEvent(ctx, EventTypeDeviceLoggedOut, instance, loggedOutPayload(evt))
 
 	// TriggerLoggedOut fires the manager's keep-slot callback (resets the in-memory
 	// client + clears the persisted JID, but keeps the slot id and display name).
@@ -262,21 +277,15 @@ func handleLoggedOut(evt *events.LoggedOut, instance *DeviceInstance) {
 	websocket.Broadcast <- websocket.BroadcastMessage{
 		Code:    "DEVICE_LOGGED_OUT",
 		Message: "Device logged out (slot kept)",
-		Result:  map[string]string{"device_id": deviceID},
-	}
-
-	if len(config.WhatsappWebhook) > 0 {
-		go func(e *events.LoggedOut) {
-			webhookCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-			defer cancel()
-			if err := forwardLoggedOutToWebhook(webhookCtx, e, deviceID, instanceID); err != nil {
-				logrus.Errorf("Failed to forward PariSuccess event to webhook: %v", err)
-			}
-		}(evt)
+		Result:  map[string]string{"device_id": deviceID, "reason": evt.Reason.String()},
 	}
 }
 
-func handleConnected(_ context.Context, client *whatsmeow.Client, instance *DeviceInstance) {
+
+// handleConnectionEvents runs when a device connects or its push name changes.
+// It refreshes the device's stored identity, starts the one-time Chatwoot
+// history auto-sync and sends the configured presence.
+func handleConnectionEvents(_ context.Context, client *whatsmeow.Client, instance *DeviceInstance) {
 	if client == nil {
 		return
 	}
@@ -285,73 +294,7 @@ func handleConnected(_ context.Context, client *whatsmeow.Client, instance *Devi
 
 		// Persist updated JID/DisplayName to database after successful connection
 		// Skip if instance.ID looks like a JID (auto-created device) to avoid recreating deleted duplicates
-		if repo := instance.GetChatStorage(); repo != nil && !strings.Contains(instance.ID(), "@") {
-			jid := instance.JID()
-			displayName := instance.DisplayName()
-			if jid != "" {
-				if err := repo.SaveDeviceRecord(&domainChatStorage.DeviceRecord{
-					DeviceID:    instance.ID(),
-					DisplayName: displayName,
-					JID:         jid,
-					CreatedAt:   instance.CreatedAt(),
-				}); err != nil {
-					log.Warnf("Failed to persist device record for %s: %v", instance.ID(), err)
-				}
-
-				// Keep the Chatwoot device config's JID current. The forward path
-				// resolves configs by JID, so a config created before the device
-				// paired (empty device_jid) — or one gone stale after a re-pair —
-				// would otherwise silently never match and every message would be
-				// skipped.
-				if config.ChatwootEnabled {
-					changed, err := repo.UpdateChatwootDeviceConfigJID(instance.ID(), jid)
-					if err != nil {
-						log.Warnf("Failed to update Chatwoot config JID for %s: %v", instance.ID(), err)
-					} else if changed {
-						if reg := chatwoot.GetClientRegistry(); reg != nil {
-							reg.Invalidate(instance.ID())
-						}
-					}
-				}
-			}
-		}
-
-		deviceID := ""
-
-		if jid := instance.JID(); jid != "" {
-			deviceID = jid
-		}
-
-		if len(config.WhatsappWebhook) > 0 {
-			go func() {
-				webhookCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-				defer cancel()
-				if err := forwardConnectedToWebhook(webhookCtx, deviceID); err != nil {
-					logrus.Errorf("Failed to forward Connected event to webhook: %v", err)
-				}
-			}()
-		}
-	}
-	if len(client.Store.PushName) == 0 {
-		return
-	}
-
-	// Send configured presence when connecting and when the pushname is changed.
-	// This makes sure that outgoing messages always have the right pushname.
-	sendConfiguredPresence(context.Background(), client)
-
-}
-
-func handlePushNameEvents(_ context.Context, client *whatsmeow.Client, instance *DeviceInstance) {
-	if client == nil {
-		return
-	}
-	if instance != nil {
-		instance.UpdateStateFromClient()
-
-		// Persist updated JID/DisplayName to database after successful connection
-		// Skip if instance.ID looks like a JID (auto-created device) to avoid recreating deleted duplicates
-		if repo := instance.GetChatStorage(); repo != nil && !strings.Contains(instance.ID(), "@") {
+		if repo := instance.GetChatStorage(); repo != nil && instance.ID() != "" && !strings.Contains(instance.ID(), "@") {
 			jid := instance.JID()
 			displayName := instance.DisplayName()
 			if jid != "" {
@@ -383,7 +326,6 @@ func handlePushNameEvents(_ context.Context, client *whatsmeow.Client, instance 
 			}
 		}
 	}
-
 	// Start Chatwoot history auto-sync on first connect for this device when
 	// CHATWOOT_IMPORT_MESSAGES is enabled. TriggerAutoSync self-guards on config,
 	// login state, and a once-per-device latch, so it is safe to call on every
@@ -391,7 +333,7 @@ func handlePushNameEvents(_ context.Context, client *whatsmeow.Client, instance 
 	// device may connect before its pushname is known.
 	if instance != nil {
 		if repo := instance.GetChatStorage(); repo != nil {
-			chatwoot.TriggerAutoSync(repo, client)
+			chatwoot.TriggerAutoSync(repo, client, NewBulkMediaRecovery(repo).Recover)
 		}
 	}
 
@@ -404,8 +346,26 @@ func handlePushNameEvents(_ context.Context, client *whatsmeow.Client, instance 
 	sendConfiguredPresence(context.Background(), client)
 }
 
-func handleStreamReplaced(_ context.Context) {
-	os.Exit(0)
+
+// handleStreamReplaced handles WhatsApp replacing this device's connection with
+// another one that uses the same session (e.g. a second process with a copy of
+// the session storage). Only the affected device is taken offline; the process
+// and the other devices keep running. whatsmeow does not reconnect after this
+// event, so the device stays disconnected until it is reconnected explicitly.
+func handleStreamReplaced(instance *DeviceInstance) {
+	deviceID := instance.ID()
+	logrus.Warnf("[STREAM_REPLACED] Connection for device %s was replaced by another client using the same session; disconnecting this device", deviceID)
+
+	if client := instance.GetClient(); client != nil {
+		client.Disconnect()
+	}
+	instance.SetState(domainDevice.DeviceStateDisconnected)
+
+	websocket.Broadcast <- websocket.BroadcastMessage{
+		Code:    "DEVICE_STREAM_REPLACED",
+		Message: "Device connection was replaced by another client using the same session",
+		Result:  map[string]string{"device_id": deviceID},
+	}
 }
 
 func handleReceipt(ctx context.Context, evt *events.Receipt, deviceID string, client *whatsmeow.Client) {
@@ -414,6 +374,9 @@ func handleReceipt(ctx context.Context, evt *events.Receipt, deviceID string, cl
 	case types.ReceiptTypeRead, types.ReceiptTypeReadSelf:
 		sendReceipt = true
 		log.Infof("%v was read by %s at %s: %+v", evt.MessageIDs, evt.SourceString(), evt.Timestamp, evt)
+	case types.ReceiptTypePlayed:
+		sendReceipt = true
+		log.Infof("%v was played by %s at %s: %+v", evt.MessageIDs, evt.SourceString(), evt.Timestamp, evt)
 	case types.ReceiptTypeDelivered:
 		sendReceipt = true
 		log.Infof("%s was delivered to %s at %s: %+v", evt.MessageIDs[0], evt.SourceString(), evt.Timestamp, evt)
@@ -429,18 +392,6 @@ func handleReceipt(ctx context.Context, evt *events.Receipt, deviceID string, cl
 				logrus.Errorf("Failed to forward ack event to webhook: %v", err)
 			}
 		}(evt, client)
-	}
-}
-
-func handlePresence(_ context.Context, evt *events.Presence) {
-	if evt.Unavailable {
-		if evt.LastSeen.IsZero() {
-			log.Infof("%s is now offline", evt.From)
-		} else {
-			log.Infof("%s is now offline (last seen: %s)", evt.From, evt.LastSeen)
-		}
-	} else {
-		log.Infof("%s is now online", evt.From)
 	}
 }
 
@@ -467,6 +418,11 @@ func handleGroupInfo(ctx context.Context, evt *events.GroupInfo, deviceID string
 		return
 	}
 
+	// A new subject makes this device's cached group name stale.
+	if evt.Name != nil {
+		invalidateCachedGroupName(groupNameCacheDeviceID(client), evt.JID.ToNonAD().String())
+	}
+
 	// Log group events for debugging
 	if len(evt.Join) > 0 {
 		log.Infof("Group %s: %d users joined at %s", evt.JID, len(evt.Join), evt.Timestamp)
@@ -480,6 +436,9 @@ func handleGroupInfo(ctx context.Context, evt *events.GroupInfo, deviceID string
 	if len(evt.Demote) > 0 {
 		log.Infof("Group %s: %d users demoted at %s", evt.JID, len(evt.Demote), evt.Timestamp)
 	}
+	if evt.Name != nil {
+		log.Infof("Group %s: name changed at %s", evt.JID, evt.Timestamp)
+	}
 
 	// Forward group info event to webhook
 	go func(e *events.GroupInfo, c *whatsmeow.Client) {
@@ -489,19 +448,4 @@ func handleGroupInfo(ctx context.Context, evt *events.GroupInfo, deviceID string
 			logrus.Errorf("Failed to forward group info event to webhook: %v", err)
 		}
 	}(evt, client)
-}
-
-func handleTemporaryBan(evt *events.TemporaryBan, instance *DeviceInstance) {
-	logrus.Warnf("[REMOTE_TEMPORARY_BAN] Received TemporaryBan event for device %s", instance.ID())
-
-	deviceID := instance.ID()
-	if len(config.WhatsappWebhook) > 0 {
-		go func(e *events.TemporaryBan) {
-			webhookCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-			defer cancel()
-			if err := forwardTemporaryBanToWebhook(webhookCtx, e, deviceID); err != nil {
-				logrus.Errorf("Failed to forward TemporaryBan event to webhook: %v", err)
-			}
-		}(evt)
-	}
 }

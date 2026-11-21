@@ -7,16 +7,26 @@ import (
 )
 
 var (
-	AppVersion             = "v0.0.7"
+	AppVersion             = "v0.0.8"
 	AppPort                = "3000"
 	AppHost                = "0.0.0.0"
 	AppDebug               = false
 	AppOs                  = "SoyAurelia"
 	AppPlatform            = waCompanionReg.DeviceProps_PlatformType(1)
 	AppBasicAuthCredential []string
-	AppBasePath            = ""
-	AppTrustedProxies      []string // Trusted proxy IP ranges (e.g., "0.0.0.0/0" for all, or specific CIDRs)
-	AppCORSAllowedOrigins  []string // CORS allowed origins; empty means "*" (any origin)
+	// AppAllowUnauthenticated exposes device admin, send, logout, and MCP
+	// routes without Basic Auth. It is required when credentials are empty and
+	// AppHost is not a loopback address (the default 0.0.0.0). Loopback binds
+	// stay open for local development. Intended for a reverse proxy that
+	// authenticates in front of this process.
+	AppAllowUnauthenticated = false
+	// AppTrustedOrigins lists browser origins allowed to call state-changing
+	// routes, in addition to the request's own host and any specific
+	// AppCORSAllowedOrigins. A CORS wildcard does not allow cross-site mutations.
+	AppTrustedOrigins     []string
+	AppBasePath           = ""
+	AppTrustedProxies     []string // Trusted proxy IP ranges (e.g., "0.0.0.0/0" for all, or specific CIDRs)
+	AppCORSAllowedOrigins []string // CORS allowed origins; empty means "*" (any origin)
 
 	// Web UI (gowa-ui) runtime download settings. The dashboard is a separate
 	// project released as a single HTML file; gowa fetches the latest release
@@ -47,11 +57,16 @@ var (
 	WhatsappAutoDownloadMedia         = true  // Auto-download media from incoming messages
 	WhatsappIgnoreStatusMedia         = false // Ignore downloading status media
 	WhatsappWebhook                   []string
-	WhatsappWebhookSecret             = "secret"
+	// WhatsappWebhookSecret signs outbound webhooks. Empty, and the published
+	// default "secret", are replaced at startup with a random per-process key
+	// so receivers are not asked to trust a key that ships in the documentation.
+	WhatsappWebhookSecret             = ""
 	WhatsappWebhookBearer             string
+
 	WhatsappWebhookInsecureSkipVerify = false          // Skip TLS certificate verification for webhooks (insecure)
 	WhatsappWebhookEvents             []string         // Whitelist of events to forward to webhook (empty = all events)
 	WhatsappWebhookIgnoreJids         []string         // JIDs (or "@g.us"/"@s.whatsapp.net"/"@lid" wildcards) to skip when forwarding to webhooks
+	WhatsappWebhookAllDeviceReceipts           = false // Forward receipts from all linked devices, not only the primary device
 	WhatsappWebhookDeviceMergeGlobal           = false // Per-device webhook adds to the global WHATSAPP_WEBHOOK targets instead of replacing them
 	WhatsappAutoRejectCall                     = false // Auto-reject incoming calls
 	WhatsappLogLevel                           = "ERROR"
@@ -124,9 +139,15 @@ var (
 	ChatwootAutoCreate = false
 	ChatwootInboxName  = "WhatsApp"
 	ChatwootWebhookURL = ""
-	// Optional shared secret for incoming Chatwoot webhooks. When empty, inbound
-	// webhook requests remain unauthenticated for backward compatibility.
-	ChatwootWebhookSecret = ""
+	// Optional shared secret for incoming Chatwoot webhooks. An empty effective
+	// secret rejects the request. ChatwootWebhookAllowUnsigned restores the
+	// previous open behavior and must be set explicitly.
+	ChatwootWebhookSecret        = ""
+	ChatwootWebhookAllowUnsigned = false
+	// ChatwootWebhookSignatureTolerance bounds the age (and clock skew) of the
+	// X-Chatwoot-Timestamp accepted with Chatwoot's signed webhooks, which
+	// limits how long a captured request can be replayed.
+	ChatwootWebhookSignatureTolerance = 5 * time.Minute
 
 	// ChatwootAllowedHosts optionally restricts which Chatwoot hosts a
 	// per-device config may point at. When non-empty, a config's chatwoot_url
@@ -161,10 +182,20 @@ var (
 	ChatwootForwardEdits   = true
 	ChatwootForwardDeletes = true
 
+	// ChatwootEvents is the event whitelist for Chatwoot forwarding. Empty means
+	// Chatwoot follows WhatsappWebhookEvents.
+	ChatwootEvents []string
+
 	// Chatwoot Evolution-compatible state propagation. Read sync updates
 	// Chatwoot last-seen from WhatsApp receipts and marks WhatsApp messages read
 	// after agent replies. Delete sync removes the linked Chatwoot/WhatsApp
 	// message when the opposite side reports deletion.
 	ChatwootMessageRead   = false
 	ChatwootMessageDelete = false
+
+	// ChatwootRevokeOnDelete is the Chatwoot-to-WhatsApp half of
+	// ChatwootMessageDelete alone: a message the agent deletes in Chatwoot is
+	// revoked on WhatsApp, and nothing deleted on WhatsApp is deleted in
+	// Chatwoot.
+	ChatwootRevokeOnDelete = false
 )

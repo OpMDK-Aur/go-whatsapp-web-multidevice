@@ -87,6 +87,22 @@ type MyContactResponse struct {
 	AvatarURL     string    `json:"avatar_url,omitempty"`
 }
 
+// MyListContactsDetailedResponse lists the device's person contacts with each
+// contact-store name in its own field, so a client can tell the name saved in
+// the address book from the contact's own push name or business name.
+type MyListContactsDetailedResponse struct {
+	Data []MyListContactsDetailedData `json:"data"`
+}
+
+type MyListContactsDetailedData struct {
+	JID          string `json:"jid"`
+	LID          string `json:"lid,omitempty"`
+	FullName     string `json:"full_name,omitempty"`
+	FirstName    string `json:"first_name,omitempty"`
+	PushName     string `json:"push_name,omitempty"`
+	BusinessName string `json:"business_name,omitempty"`
+}
+
 type ChangePushNameRequest struct {
 	PushName string `json:"push_name" form:"push_name"`
 }
@@ -97,6 +113,15 @@ type CheckRequest struct {
 
 type CheckResponse struct {
 	IsOnWhatsApp bool `json:"is_on_whatsapp"`
+}
+
+type SubscribePresenceRequest struct {
+	Phone string `json:"phone" query:"phone"`
+}
+
+type SubscribePresenceResponse struct {
+	Subscribed bool   `json:"subscribed"`
+	JID        string `json:"jid"`
 }
 
 type BusinessProfileRequest struct {

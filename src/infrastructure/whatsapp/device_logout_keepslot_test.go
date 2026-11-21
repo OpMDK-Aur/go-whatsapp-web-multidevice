@@ -53,6 +53,13 @@ func (s *keepSlotStubStorage) GetChatwootDeviceConfig(string) (*domainChatStorag
 	return nil, nil
 }
 
+// Device events (connected, logged out, ...) go through forwardDeviceEvent, which
+// always looks up the slot's own webhook config before delivering. These slots have
+// none, so the lookup returns empty and the global webhook config applies.
+func (s *keepSlotStubStorage) GetDeviceWebhookConfig(context.Context, string) (*domainChatStorage.DeviceWebhookConfig, error) {
+	return nil, nil
+}
+
 func (s *keepSlotStubStorage) ListDeviceRecords() ([]*domainChatStorage.DeviceRecord, error) {
 	return s.deviceRecords, s.listRecordsErr
 }
